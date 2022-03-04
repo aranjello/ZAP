@@ -9,7 +9,7 @@ typedef struct {
   Token current;
   Token previous;
   bool hadError;
-    bool panicMode;
+  bool panicMode;
 } Parser;
 
 typedef enum {
@@ -41,13 +41,17 @@ Parser parser;
 
 Chunk* compilingChunk;
 
+/*
+get the current chunk we are working in
+@return The current chunk
+*/
 static Chunk* currentChunk() {
   return compilingChunk;
 }
 
 static void errorAt(Token* token, const char* message) {
-    if (parser.panicMode) return;
-    parser.panicMode = true;
+  if (parser.panicMode) return;
+  parser.panicMode = true;
   fprintf(stderr, "[line %d] Error", token->line);
 
   if (token->type == TOKEN_EOF) {
@@ -104,7 +108,7 @@ static void emitReturn() {
 }
 
 static uint8_t makeConstant() {
-  int constant = addArray(currentChunk(), tempArray);
+  int constant = addArray(currentChunk(), *tempArray);
   if (constant > UINT8_MAX) {
     error("Too many constants in one chunk.");
     return 0;
@@ -150,40 +154,43 @@ static void grouping() {
 
 static void number() {
   if(tempArray == NULL){
-    errorAtCurrent("array not initialized");
+    tempArray = createArray(false,VAL_NUMBER,0);
+  }
+  if(tempArray->type != VAL_NUMBER){
+    errorAt(&parser.previous,"array is incorrect type for number");
     return;
   }
   double value = strtod(parser.previous.start, NULL);
-  
-  writeToArray(tempArray,value);
+  writeToArray(tempArray,&value);
 }
 
 static void character(){
   if(tempArray == NULL){
-    errorAtCurrent("array not initialized");
+    tempArray = createArray(false,VAL_CHAR,0);
+  }
+  if(tempArray->type != VAL_CHAR){
+    errorAtCurrent("array is incorrect type for character");
     return;
   }
-  double value = 69;
-  
-  writeToArray(tempArray,value);
+
+  writeToArray(tempArray,parser.previous.start);
 }
 
-static void addToArray(){
-  if(tempArray == NULL){
-    errorAtCurrent("array not initialized");
-    return;
-  }
-  double value = strtod(parser.previous.start, NULL); 
-  writeToArray(tempArray,value);
+// static void addToArray(){
+//   if(tempArray == NULL){
+//     errorAtCurrent("array not initialized");
+//     return;
+//   }
+//   double value = strtod(parser.previous.start, NULL); 
+//   writeToArray(tempArray,value);
   
-}
+// }
 
 static void chain(){
   parsePrecedence(PREC_NONE);
 }
 
 static void array(){
-  tempArray = createArray(0);
   parsePrecedence(PREC_NONE);
   consume(TOKEN_RIGHT_SQUARE, "Improperlly close array");
   emitArray();
@@ -229,8 +236,8 @@ ParseRule rules[] = {
     //[TOKEN_STRING]        = {NULL,     NULL,   PREC_NONE},
     [TOKEN_NUMBER] = {number, NULL, PREC_NONE},
     [TOKEN_CHAR] = {character, NULL, PREC_NONE},
-//[TOKEN_AND]           = {NULL,     NULL,   PREC_NONE},
-[TOKEN_CLASS] = {NULL, NULL, PREC_NONE},
+    //[TOKEN_AND]           = {NULL,     NULL,   PREC_NONE},
+    [TOKEN_CLASS] = {NULL, NULL, PREC_NONE},
     //[TOKEN_ELSE]          = {NULL,     NULL,   PREC_NONE},
     [TOKEN_FALSE] = {NULL, NULL, PREC_NONE},
     //[TOKEN_FOR]           = {NULL,     NULL,   PREC_NONE},
@@ -271,9 +278,9 @@ static ParseRule* getRule(TokenType type) {
 
 bool compile(const char* source, Chunk* chunk) {
   initScanner(source);
-compilingChunk = chunk;
+  compilingChunk = chunk;
 
-parser.hadError = false;
+  parser.hadError = false;
   parser.panicMode = false;
 
   advance();
