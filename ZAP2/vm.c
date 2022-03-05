@@ -27,9 +27,11 @@ static void runtimeError(const char* format, ...) {
 
 void initVM() {
     resetStack();
+    initTable(&vm.strings);
 }
 
 void freeVM() {
+  freeTable(&vm.strings);
 }
 
 void push(Array* value) {
@@ -67,8 +69,8 @@ void binaryOp(char op){
         }
         writeToArray(c, &value);
     }
-    // freeArray(vm.chunk,a);
-    // freeArray(vm.chunk,b);
+    trashArray(a);
+    trashArray(b);
     push(c);
 }
 
@@ -99,7 +101,14 @@ static void getArrayVal(){
   }
 
   //printf("arr created val is %g\n",newArr->as.number[0]);
+  trashArray(indicies);
+  trashArray(val);
   push(newArr);
+}
+
+//0 NULL and false all evaluate to false all other values are true
+static bool isFalsey(Array array){
+  return array.type = VAL_BOOL;
 }
 
 static InterpretResult run() {

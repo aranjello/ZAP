@@ -46,16 +46,6 @@ int addArray(Chunk* chunk, Array value) {
 }
 
 /*
-free memory for an array from the chunk
-@param chunk The chunk to free from
-@param arr The array to free
-*/
-void freeArray(Chunk* chunk, Array* arr){
-  freeArrayVals(&chunk->constantArrays, arr);
-  //chunk->constantArrays.count--;
-}
-
-/*
 frees all memory used for a chunk
 @param chunk The chunk to free
 */

@@ -20,6 +20,7 @@ Array* createArray(bool hasSub, ValueType t,int val,...){
     array->count = 0;
     array->type = t;
     array->hasSubArray = hasSub;
+    array->garbage = false;
     for (int i = 0; i < val; i++){
         if (array->capacity < array->count + 1)
         {
@@ -85,16 +86,9 @@ Frees the memory being used by an array
 @param arr The array array containing the array to be freed
 @param array The array to free
 */
-void freeArrayVals(ArrayArray* arr,Array* array){
-    switch(array->type)
-    {
-        case VAL_NUMBER:
-            FREE_ARRAY(double, array->as.number, array->capacity);
-            break;
-        case VAL_CHAR:
-            FREE_ARRAY(char, array->as.character, array->capacity);
-            break;
-    }
+void trashArray(Array* array){
+    array->garbage = true;
+    
     
     //arr->count--;
 }
@@ -132,7 +126,15 @@ frees the memory used by a chunks array array
 */
 void freeValueArray(ArrayArray* array) {
     for (int i = 0; i < array->count; i++){
-        freeArrayVals(array, &array->values[i]);
+        switch(array->values[i].type)
+        {
+            case VAL_NUMBER:
+                FREE_ARRAY(double, array->values[i].as.number, array->values[i].capacity);
+                break;
+            case VAL_CHAR:
+                FREE_ARRAY(char, array->values[i].as.character, array->values[i].capacity);
+                break;
+        }
     }
     FREE_ARRAY(Array, array->values, array->capacity);
     initValueArray(array);
@@ -146,12 +148,17 @@ void printValue(Array value) {
     printf("[");
     for (int i = 0; i < value.count; i++){
         if(i>0)
-            printf(",");
+            if(value.type == VAL_NUMBER || value.type == VAL_CHAR && i < value.count-1)
+                printf(",");
             switch (value.type)
             {
-            case VAL_NUMBER: printf("%g",value.as.number[i]);
+            case VAL_NUMBER: 
+                printf("%g",value.as.number[i]);
                 break;
-            case VAL_CHAR: printf("%c",value.as.character[i]);
+            case VAL_CHAR: 
+                if(value.as.character[i]=='\0')
+                    break;
+                printf("%c",value.as.character[i]);
                 break;
             }
         

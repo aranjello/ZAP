@@ -16,6 +16,7 @@ typedef struct{
   int count;
   ValueType type;
   bool hasSubArray;
+  bool garbage;
   union{
     struct Array* array;
     char *character;
@@ -31,7 +32,7 @@ typedef struct {
 
 Array* createArray(bool hasSub, ValueType t, int val,...);
 void writeToArray(Array* array,const void * val);
-void freeArrayVals(ArrayArray* chunk, Array *array);
+void trashArray(Array *array);
 void initValueArray(ArrayArray* array);
 void writeValueArray(ArrayArray* array, Array value);
 void freeValueArray(ArrayArray* array);

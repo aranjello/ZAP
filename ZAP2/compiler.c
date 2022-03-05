@@ -79,7 +79,7 @@ static void advance() {
 
   for (;;) {
     parser.current = scanToken();
-    //printf("currtoken is %.*s\n",parser.current.length, parser.current.start);
+    printf("currtoken is %.*s\n",parser.current.length, parser.current.start);
     if (parser.current.type != TOKEN_ERROR) break;
 
     errorAtCurrent(parser.current.start);
@@ -217,15 +217,12 @@ static bool isDigit(char c) {
 
 static void parseArray(){
   if(tempArray == NULL){
-    tempArray = createArray(false,VAL_NUMBER,0);
-  }
-  if(tempArray->type != VAL_NUMBER){
-    errorAt(&parser.previous,"array is incorrect type for number");
-    return;
+    
   }
   const char *arr = parser.previous.start+1;
   char *valHolder;
   if(isDigit(arr[0])){
+    tempArray = createArray(false,VAL_NUMBER,0);
     double val = strtod(arr,&valHolder);
     writeToArray(tempArray,&val);
     while (valHolder[0] != ']'){
@@ -234,6 +231,15 @@ static void parseArray(){
       writeToArray(tempArray,&val);
       
     };
+  }else if(isAlpha(arr[0])){
+    tempArray = createArray(false,VAL_CHAR,0);
+    while (arr[0] != ']')
+    {
+      writeToArray(tempArray, arr);
+      arr++;
+    }
+    char c = '\0';
+    writeToArray(tempArray, &c);
   }
   emitArray();
   //consume(TOKEN_RIGHT_SQUARE, "Improperly close array");
