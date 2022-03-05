@@ -223,6 +223,14 @@ static Token number() {
   return makeToken(TOKEN_NUMBER);
 }
 
+static Token makeArray(){
+  for (;;){
+    char c = advance();
+    if(c == ']')
+      return makeToken(TOKEN_ARRAY);
+  }
+}
+
 /*
 Creates a token for a string
 @return The newly created string token
@@ -250,17 +258,18 @@ Token scanToken() {
 
     if (isAtEnd()) return makeToken(TOKEN_EOF);
     char c = advance();
-    if (isAlpha(c)) return (arrayDepth > 0) ? makeToken(TOKEN_CHAR) : identifier();
+    if (isAlpha(c)) return identifier();
     if (isDigit(c)) return number();
 
     switch (c) {
-        case '(': return makeToken(TOKEN_LEFT_PAREN);
+        case '(':
+        return makeToken(TOKEN_LEFT_PAREN);
         case ')': return makeToken(TOKEN_RIGHT_PAREN);
         case '[':
-            arrayDepth++;
-            return makeToken(TOKEN_LEFT_SQUARE);
+          if (!(peek() == '['))
+            return makeArray();
+          return makeToken(TOKEN_LEFT_SQUARE);
         case ']':
-            arrayDepth--;
             return makeToken(TOKEN_RIGHT_SQUARE);
         case '{': return makeToken(TOKEN_LEFT_BRACE);
         case '}': return makeToken(TOKEN_RIGHT_BRACE);

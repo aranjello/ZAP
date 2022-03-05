@@ -72,6 +72,36 @@ void binaryOp(char op){
     push(c);
 }
 
+static void getArrayVal(){
+  Array *indicies = pop();
+  Array* val = pop();
+  Array *newArr;
+  switch (val->type)
+      {
+      case(VAL_CHAR):
+      newArr = createArray(false, val->type, 0);
+        break;
+      case(VAL_NUMBER):
+      newArr = createArray(false, val->type, 0);
+        break;
+    }
+  //printf("creating new array index is %d val ther is %g\n",ind,val->as.number[ind]);
+  for (int i = 0; i < indicies->count; i++){
+    switch (val->type){
+      case VAL_CHAR:
+        writeToArray(newArr, &(val->as.character[(int)indicies->as.number[i]]));
+        break;
+      case VAL_NUMBER:
+        writeToArray(newArr, &(val->as.number[(int)indicies->as.number[i]]));
+        break;
+    }
+    
+  }
+
+  //printf("arr created val is %g\n",newArr->as.number[0]);
+  push(newArr);
+}
+
 static InterpretResult run() {
 #define READ_BYTE() (*vm.ip++)
 #define READ_CONSTANT() &(vm.chunk->constantArrays.values[READ_BYTE()])
@@ -89,9 +119,24 @@ static InterpretResult run() {
     #endif
     uint8_t instruction;
     switch (instruction = READ_BYTE()) {
+    case OP_LOOKUP:{
+      getArrayVal();
+      break;
+    }
     case OP_ARRAY: {
-        Array* constant = READ_CONSTANT();
-        push(constant);
+          Array *constant = READ_CONSTANT();
+          push(constant);
+          break;
+      }
+      case OP_PRE_ADD:{
+        double val = 0;
+        Array *a = pop();
+        for (int i = 0; i < a->count; i++){
+          val += a->as.number[i];
+        }
+        a->as.number[0] = val;
+        a->count = 1;
+        push(a);
         break;
       }
       case OP_ADD:      binaryOp('+'); break;

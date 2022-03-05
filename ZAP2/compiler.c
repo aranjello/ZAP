@@ -13,13 +13,13 @@ typedef struct {
 } Parser;
 
 typedef enum {
-  PREC_ARRAY,
   PREC_NONE,
   PREC_ASSIGNMENT,  // = []
   PREC_OR,          // or
   PREC_AND,         // and
   PREC_EQUALITY,    // == !=
   PREC_COMPARISON,  // < > <= >=
+  PREC_ARRAY,
   PREC_TERM,        // + -
   PREC_FACTOR,      // * /
   PREC_UNARY,       // ! -
@@ -79,6 +79,7 @@ static void advance() {
 
   for (;;) {
     parser.current = scanToken();
+    //printf("currtoken is %.*s\n",parser.current.length, parser.current.start);
     if (parser.current.type != TOKEN_ERROR) break;
 
     errorAtCurrent(parser.current.start);
@@ -187,13 +188,60 @@ static void character(){
 // }
 
 static void chain(){
-  parsePrecedence(PREC_NONE);
+  parsePrecedence(PREC_ASSIGNMENT);
 }
 
-static void array(){
-  parsePrecedence(PREC_NONE);
-  consume(TOKEN_RIGHT_SQUARE, "Improperlly close array");
+static void chainChar(){
+  character();
+  chain();
+}
+
+/*
+Check if the input char is a letter
+@param c The char to check
+@return c is a letter
+*/
+static bool isAlpha(char c) {
+    return (c >= 'a' && c <= 'z') ||
+           (c >= 'A' && c <= 'Z');
+}
+
+/*
+Check if the input char is a digit
+@param c The char to check
+@return c is a digit
+*/
+static bool isDigit(char c) {
+  return c >= '0' && c <= '9';
+}
+
+static void parseArray(){
+  if(tempArray == NULL){
+    tempArray = createArray(false,VAL_NUMBER,0);
+  }
+  if(tempArray->type != VAL_NUMBER){
+    errorAt(&parser.previous,"array is incorrect type for number");
+    return;
+  }
+  const char *arr = parser.previous.start+1;
+  char *valHolder;
+  if(isDigit(arr[0])){
+    double val = strtod(arr,&valHolder);
+    writeToArray(tempArray,&val);
+    while (valHolder[0] != ']'){
+      valHolder++;
+      val = strtod(valHolder, &valHolder);
+      writeToArray(tempArray,&val);
+      
+    };
+  }
   emitArray();
+  //consume(TOKEN_RIGHT_SQUARE, "Improperly close array");
+}
+
+static void lookup(){
+  parseArray();
+  emitByte(OP_LOOKUP);
 }
 
 static void unary() {
@@ -204,6 +252,9 @@ static void unary() {
 
   // Emit the operator instruction.
   switch (operatorType) {
+    case TOKEN_PLUS:
+      emitByte(OP_PRE_ADD);
+      break;
     case TOKEN_MINUS: emitByte(OP_NEGATE); break;
     default: return; // Unreachable.
   }
@@ -214,13 +265,14 @@ ParseRule rules[] = {
     [TOKEN_RIGHT_PAREN] = {NULL, NULL, PREC_NONE},
     [TOKEN_LEFT_BRACE] = {NULL, NULL, PREC_NONE},
     [TOKEN_RIGHT_BRACE] = {NULL, NULL, PREC_NONE},
-    [TOKEN_LEFT_SQUARE] = {array, NULL, PREC_ARRAY},
-    [TOKEN_RIGHT_SQUARE] = {NULL, NULL, PREC_ARRAY},
+    [TOKEN_ARRAY] = {parseArray, lookup, PREC_ARRAY},
+    [TOKEN_LEFT_SQUARE] = {NULL, NULL, PREC_NONE},
+    [TOKEN_RIGHT_SQUARE] = {NULL, NULL, PREC_NONE},
     [TOKEN_RIGHT_PAREN] = {NULL, NULL, PREC_NONE},
-    [TOKEN_COMMA] = {NULL, chain, PREC_NONE},
+    [TOKEN_COMMA] = {NULL, chain, PREC_ASSIGNMENT},
     [TOKEN_DOT] = {NULL, NULL, PREC_NONE},
     [TOKEN_MINUS] = {unary, binary, PREC_TERM},
-    [TOKEN_PLUS] = {NULL, binary, PREC_TERM},
+    [TOKEN_PLUS] = {unary, binary, PREC_TERM},
     [TOKEN_SEMI] = {NULL, NULL, PREC_NONE},
     [TOKEN_FORWARD_SLASH] = {NULL, binary, PREC_FACTOR},
     [TOKEN_STAR] = {NULL, binary, PREC_FACTOR},
@@ -235,7 +287,7 @@ ParseRule rules[] = {
     [TOKEN_IDENTIFIER] = {NULL, NULL, PREC_NONE},
     //[TOKEN_STRING]        = {NULL,     NULL,   PREC_NONE},
     [TOKEN_NUMBER] = {number, NULL, PREC_NONE},
-    [TOKEN_CHAR] = {character, NULL, PREC_NONE},
+    [TOKEN_CHAR] = {character, chainChar, PREC_NONE},
     //[TOKEN_AND]           = {NULL,     NULL,   PREC_NONE},
     [TOKEN_CLASS] = {NULL, NULL, PREC_NONE},
     //[TOKEN_ELSE]          = {NULL,     NULL,   PREC_NONE},
@@ -279,12 +331,12 @@ static ParseRule* getRule(TokenType type) {
 bool compile(const char* source, Chunk* chunk) {
   initScanner(source);
   compilingChunk = chunk;
-
   parser.hadError = false;
   parser.panicMode = false;
 
   advance();
-  expression();
+  while(parser.current.type != TOKEN_EOF)
+    expression();
   consume(TOKEN_EOF, "Expect end of expression.");
   endCompiler();
   return !parser.hadError;

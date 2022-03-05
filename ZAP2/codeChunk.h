@@ -7,9 +7,11 @@
 typedef enum
 {
     OP_ARRAY,
+    OP_LOOKUP,
     OP_EQUAL,
     OP_GREATER,
     OP_LESS,
+    OP_PRE_ADD,
     OP_ADD,
     OP_SUBTRACT,
     OP_MULTIPLY,

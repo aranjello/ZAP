@@ -27,6 +27,8 @@ int disassembleInstruction(Chunk* chunk, int offset) {
   }
   uint8_t instruction = chunk->code[offset];
   switch (instruction) {
+    case OP_LOOKUP:
+      return simpleInstruction("OP_LOOKUP", offset);
     case OP_ARRAY:
       return constantInstruction("OP_ARRAY", chunk, offset);
     case OP_ADD:
