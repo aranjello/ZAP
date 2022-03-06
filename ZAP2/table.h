@@ -4,18 +4,12 @@
 #include "common.h"
 #include "value.h"
 
-typedef struct {
-    char *value;
-    int length;
-    uint32_t hash;
-} Key;
-
-typedef struct {
-  Key* key;
-  Array* value;
+typedef struct Entry{
+  struct Key* key;
+  struct Array* value;
 } Entry;
 
-typedef struct {
+typedef struct Table{
   int count;
   int capacity;
   Entry* entries;
@@ -23,11 +17,13 @@ typedef struct {
 
 void initTable(Table* table);
 void freeTable(Table* table);
-bool tableGet(Table* table, Key* key, Array* value);
-bool tableSet(Table* table, Key* key, Array* value);
-bool tableDelete(Table* table, ObjString* key);
-void tableAddAll(Table* from, Table* to);
-Key* tableFindString(Table* table, const char* chars,
+
+bool tableSet(Table* table, struct Key* key, struct Array* value);
+bool tableGet(Table* table, struct Key* key, struct Array* value);
+bool tableDelete(Table* table, struct Key* key);
+
+Key* tableFindkey(Table* table, const char* chars,
                            int length, uint32_t hash);
 
+void tableAddAll(Table* from, Table* to);
 #endif

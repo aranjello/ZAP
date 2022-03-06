@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "common.h"
 #include "compiler.h"
@@ -35,11 +36,13 @@ typedef struct {
   Precedence precedence;
 } ParseRule;
 
-Array *tempArray = NULL;
+Array tempArray;
 
 Parser parser;
 
 Chunk* compilingChunk;
+
+VM currVM;
 
 /*
 get the current chunk we are working in
@@ -79,7 +82,12 @@ static void advance() {
 
   for (;;) {
     parser.current = scanToken();
-    printf("currtoken is %.*s\n",parser.current.length, parser.current.start);
+    #ifdef DEBUG_TOKEN_CREATION
+      if(parser.current.type == TOKEN_EOF)
+        printf("currtoken is EOF\n");
+      else
+        printf("currtoken is %.*s\n",parser.current.length, parser.current.start);
+    #endif
     if (parser.current.type != TOKEN_ERROR) break;
 
     errorAtCurrent(parser.current.start);
@@ -93,6 +101,16 @@ static void consume(TokenType type, const char* message) {
   }
 
   errorAtCurrent(message);
+}
+
+static bool check(TokenType type) {
+  return parser.current.type == type;
+}
+
+static bool match(TokenType type) {
+  if (!check(type)) return false;
+  advance();
+  return true;
 }
 
 static void emitByte(uint8_t byte) {
@@ -109,12 +127,12 @@ static void emitReturn() {
 }
 
 static uint8_t makeConstant() {
-  int constant = addArray(currentChunk(), *tempArray);
+  int constant = addArray(currentChunk(), tempArray);
   if (constant > UINT8_MAX) {
     error("Too many constants in one chunk.");
     return 0;
   }
-  tempArray = NULL;
+  initEmptyArray(&tempArray, VAL_UNKNOWN);
   return (uint8_t)constant;
 }
 
@@ -127,6 +145,8 @@ static void endCompiler() {
 }
 
 static void expression();
+static void statement();
+static void declaration();
 static ParseRule* getRule(TokenType type);
 static void parsePrecedence(Precedence precedence);
 
@@ -148,33 +168,49 @@ static void expression() {
   parsePrecedence(PREC_ASSIGNMENT);
 }
 
+static void printStatement() {
+  expression();
+  consume(TOKEN_SEMI, "Expect ';' after value.");
+  emitByte(OP_PRINT);
+}
+
+static void declaration() {
+  statement();
+}
+
+static void statement() {
+  if (match(TOKEN_PRINT)) {
+    printStatement();
+  }
+}
+
 static void grouping() {
   expression();
   consume(TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
 }
 
 static void number() {
-  if(tempArray == NULL){
-    tempArray = createArray(false,VAL_NUMBER,0);
+  if(&tempArray == NULL){
+    initEmptyArray(&tempArray,VAL_NUMBER);
   }
-  if(tempArray->type != VAL_NUMBER){
+  if(tempArray.type != VAL_NUMBER){
     errorAt(&parser.previous,"array is incorrect type for number");
     return;
   }
   double value = strtod(parser.previous.start, NULL);
-  writeToArray(tempArray,&value);
+  writeToArray(&tempArray,&value);
 }
 
 static void character(){
-  if(tempArray == NULL){
-    tempArray = createArray(false,VAL_CHAR,0);
+  if(&tempArray == NULL){
+    initEmptyArray(&tempArray, VAL_CHAR);
   }
-  if(tempArray->type != VAL_CHAR){
+  if(tempArray.type != VAL_CHAR){
     errorAtCurrent("array is incorrect type for character");
     return;
   }
 
-  writeToArray(tempArray,parser.previous.start);
+  writeToArray(&tempArray,parser.previous.start);
 }
 
 // static void addToArray(){
@@ -216,31 +252,30 @@ static bool isDigit(char c) {
 }
 
 static void parseArray(){
-  if(tempArray == NULL){
-    
-  }
+  
   const char *arr = parser.previous.start+1;
   char *valHolder;
   if(isDigit(arr[0])){
-    tempArray = createArray(false,VAL_NUMBER,0);
+    initEmptyArray(&tempArray, VAL_NUMBER);
     double val = strtod(arr,&valHolder);
-    writeToArray(tempArray,&val);
+    writeToArray(&tempArray,&val);
     while (valHolder[0] != ']'){
       valHolder++;
       val = strtod(valHolder, &valHolder);
-      writeToArray(tempArray,&val);
+      writeToArray(&tempArray,&val);
       
     };
   }else if(isAlpha(arr[0])){
-    tempArray = createArray(false,VAL_CHAR,0);
+    initEmptyArray(&tempArray, VAL_CHAR);
     while (arr[0] != ']')
     {
-      writeToArray(tempArray, arr);
+      writeToArray(&tempArray, arr);
       arr++;
     }
     char c = '\0';
-    writeToArray(tempArray, &c);
+    writeToArray(&tempArray, &c);
   }
+  
   emitArray();
   //consume(TOKEN_RIGHT_SQUARE, "Improperly close array");
 }
@@ -264,6 +299,26 @@ static void unary() {
     case TOKEN_MINUS: emitByte(OP_NEGATE); break;
     default: return; // Unreachable.
   }
+}
+
+static uint32_t hashString(const char* key, int length) {
+  uint32_t hash = 2166136261u;
+  for (int i = 0; i < length; i++) {
+    hash ^= (uint8_t)key[i];
+    hash *= 16777619;
+  }
+  return hash;
+}
+
+static void makeKey(){
+  Key* k;
+  tableSet(&currVM.strings, k, NULL);
+  k->value = malloc(sizeof(char) * parser.previous.length);
+  memcpy(k->value, parser.previous.start, parser.previous.length);
+  k->hash = hashString(parser.previous.start, parser.previous.length);
+  k->length = parser.previous.length;
+  printf("hashed %s and got %g\n", k->value, k->hash);
+  addKey(currentChunk(), *k);
 }
 
 ParseRule rules[] = {
@@ -290,7 +345,7 @@ ParseRule rules[] = {
     [TOKEN_GREATER_EQUAL] = {NULL, NULL, PREC_NONE},
     [TOKEN_LESS] = {NULL, NULL, PREC_NONE},
     [TOKEN_LESS_EQUAL] = {NULL, NULL, PREC_NONE},
-    [TOKEN_IDENTIFIER] = {NULL, NULL, PREC_NONE},
+    [TOKEN_IDENTIFIER] = {makeKey, NULL, PREC_NONE},
     //[TOKEN_STRING]        = {NULL,     NULL,   PREC_NONE},
     [TOKEN_NUMBER] = {number, NULL, PREC_NONE},
     [TOKEN_CHAR] = {character, chainChar, PREC_NONE},
@@ -334,15 +389,16 @@ static ParseRule* getRule(TokenType type) {
   return &rules[type];
 }
 
-bool compile(const char* source, Chunk* chunk) {
+bool compile(const char* source, Chunk* chunk, VM vm) {
+  currVM = vm;
   initScanner(source);
   compilingChunk = chunk;
   parser.hadError = false;
   parser.panicMode = false;
-
   advance();
-  while(parser.current.type != TOKEN_EOF)
-    expression();
+  while (!match(TOKEN_EOF)) {
+    declaration();
+  }
   consume(TOKEN_EOF, "Expect end of expression.");
   endCompiler();
   return !parser.hadError;

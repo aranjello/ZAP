@@ -7,6 +7,9 @@
 
 #define TABLE_MAX_LOAD 0.75
 
+#define ALLOCATE(type, count) \
+    (type*)reallocate(NULL, 0, sizeof(type) * (count))
+
 void initTable(Table* table) {
   table->count = 0;
   table->capacity = 0;
@@ -18,15 +21,6 @@ void freeTable(Table* table) {
   initTable(table);
 }
 
-static uint32_t hashString(const char* key, int length) {
-  uint32_t hash = 2166136261u;
-  for (int i = 0; i < length; i++) {
-    hash ^= (uint8_t)key[i];
-    hash *= 16777619;
-  }
-  return hash;
-}
-
 static Entry* findEntry(Entry* entries, int capacity,
                         Key* key) {
   uint32_t index = key->hash % capacity;
@@ -34,9 +28,11 @@ static Entry* findEntry(Entry* entries, int capacity,
   for (;;) {
     Entry* entry = &entries[index];
     if (entry->key == NULL) {
-      if (IS_NIL(entry->value)) {
-        // Empty entry.
-        return tombstone != NULL ? tombstone : entry;
+        Array *a = entry->value;
+        if (entry->value == NULL)
+        {
+            // Empty entry.
+            return tombstone != NULL ? tombstone : entry;
       } else {
         // We found a tombstone.
         if (tombstone == NULL) tombstone = entry;
@@ -50,13 +46,13 @@ static Entry* findEntry(Entry* entries, int capacity,
   }
 }
 
-bool tableGet(Table* table, Key* key, Array** value) {
+bool tableGet(Table* table, struct Key* key, struct Array* value) {
   if (table->count == 0) return false;
 
   Entry* entry = findEntry(table->entries, table->capacity, key);
   if (entry->key == NULL) return false;
 
-  *value = entry->value;
+  value = entry->value;
   return true;
 }
 
@@ -64,9 +60,9 @@ static void adjustCapacity(Table* table, int capacity) {
   Entry* entries = ALLOCATE(Entry, capacity);
   for (int i = 0; i < capacity; i++) {
     entries[i].key = NULL;
-    entries[i].value = NIL_VAL;
+    entries[i].value = NULL;
   }
-    table->count = 0;
+  table->count = 0;
   for (int i = 0; i < table->capacity; i++) {
     Entry* entry = &table->entries[i];
     if (entry->key == NULL) continue;
@@ -76,20 +72,19 @@ static void adjustCapacity(Table* table, int capacity) {
     dest->value = entry->value;
     table->count++;
   }
-
-FREE_ARRAY(Entry, table->entries, table->capacity);
+  FREE_ARRAY(Entry, table->entries, table->capacity);
   table->entries = entries;
   table->capacity = capacity;
 }
 
-bool tableSet(Table* table, Key* key, Array* value) {
-    if (table->count + 1 > table->capacity * TABLE_MAX_LOAD) {
+bool tableSet(Table* table, Key* key, struct Array* value) {
+  if (table->count + 1 > table->capacity * TABLE_MAX_LOAD) {
     int capacity = GROW_CAPACITY(table->capacity);
     adjustCapacity(table, capacity);
   }
   Entry* entry = findEntry(table->entries, table->capacity, key);
   bool isNewKey = entry->key == NULL;
-  if (isNewKey && IS_NIL(entry->value)) table->count++;
+  if (isNewKey && entry->value == NULL) table->count++;
 
   entry->key = key;
   entry->value = value;
@@ -105,7 +100,7 @@ bool tableDelete(Table* table, Key* key) {
 
   // Place a tombstone in the entry.
   entry->key = NULL;
-  entry->value = BOOL_VAL(true);
+  entry->value = NULL;
   return true;
 }
 
@@ -118,7 +113,7 @@ void tableAddAll(Table* from, Table* to) {
   }
 }
 
-ObjString* tableFindString(Table* table, const char* chars,
+Key* tableFindString(Table* table, const char* chars,
                            int length, uint32_t hash) {
   if (table->count == 0) return NULL;
 
@@ -127,10 +122,10 @@ ObjString* tableFindString(Table* table, const char* chars,
     Entry* entry = &table->entries[index];
     if (entry->key == NULL) {
       // Stop if we find an empty non-tombstone entry.
-      if (IS_NIL(entry->value)) return NULL;
+      if (entry->value == NULL) return NULL;
     } else if (entry->key->length == length &&
         entry->key->hash == hash &&
-        memcmp(entry->key->chars, chars, length) == 0) {
+        memcmp(entry->key->value, chars, length) == 0) {
       // We found it.
       return entry->key;
     }

@@ -48,13 +48,23 @@ static Array* peek(int distance) {
   return vm.stackTop[-1 - distance];
 }
 
+  
 void binaryOp(char op){
     Array *b = pop();
     Array *a = pop();
-    if(a->count != b->count)
-        push(createArray(false,VAL_NUMBER,1, 0));
-    Array *c = createArray(false,a->type,0);
-    addArray(vm.chunk, *c);
+    Array c;
+    Array *d;
+
+    if(a->count != b->count){
+      initEmptyArray(&c, VAL_NIL);
+      d = addRunTimeArray(vm.chunk, c);
+      push(d);
+      return;
+    }
+
+    initEmptyArray(&c, a->type);
+ 
+    d = addRunTimeArray(vm.chunk, c);
     for (int i = 0; i < a->count; i++){
         double value = a->as.number[i];
         switch (op)
@@ -67,26 +77,23 @@ void binaryOp(char op){
         default:
             break;
         }
-        writeToArray(c, &value);
+        writeToArray(d, &value);
+        
     }
     trashArray(a);
     trashArray(b);
-    push(c);
+    push(d);
 }
 
 static void getArrayVal(){
   Array *indicies = pop();
   Array* val = pop();
+  Array c;
   Array *newArr;
-  switch (val->type)
-      {
-      case(VAL_CHAR):
-      newArr = createArray(false, val->type, 0);
-        break;
-      case(VAL_NUMBER):
-      newArr = createArray(false, val->type, 0);
-        break;
-    }
+  initEmptyArray(&c, val->type);
+ 
+  newArr = addRunTimeArray(vm.chunk, c);
+
   //printf("creating new array index is %d val ther is %g\n",ind,val->as.number[ind]);
   for (int i = 0; i < indicies->count; i++){
     switch (val->type){
@@ -166,8 +173,21 @@ static InterpretResult run() {
         break;
       }
       case OP_RETURN: {
-        
-        printValue(*pop());
+        #ifdef DEBUG_GARBAGE_COLLECTION
+        printf("runtime vars in mem: ");
+          for (int i = 0; i < vm.chunk->runTimeArrays.count; i++)
+          {
+            printValue(vm.chunk->runTimeArrays.values[i]);
+          }
+          printf("\n");
+          printf("constant vars in mem: ");
+          for (int i = 0; i < vm.chunk->constantArrays.count; i++){
+            printValue(vm.chunk->constantArrays.values[i]);
+          }
+          printf("\n");
+        #endif
+        Array *val = pop();
+        printValue(*val);
         printf("\n");
         return INTERPRET_OK;
       }
@@ -182,7 +202,7 @@ InterpretResult interpret(const char* source) {
   Chunk chunk;
   initChunk(&chunk);
 
-  if (!compile(source, &chunk)) {
+  if (!compile(source, &chunk,vm)) {
     freeChunk(&chunk);
     return INTERPRET_COMPILE_ERROR;
   }

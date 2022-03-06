@@ -4,6 +4,17 @@
 #include "memory.h"
 #include "value.h"
 
+
+void initEmptyArray(Array* array, ValueType t){
+    array->capacity = 0;
+    array->count = 0;
+    array->type = t;
+    array->garbage = false;
+    array->hasSubArray = false;
+    //setting any as value to NULL clears the array values as all as values point to the same initial memeory position
+    array->as.number = NULL;
+}
+
 /*
 creates and intializes a new array
 @param hasSub True if the array contains sub arrays
@@ -11,10 +22,9 @@ creates and intializes a new array
 @param val The number of values to be added to the array
 @param ... Pointers to the values to be put in the array
 */
-Array* createArray(bool hasSub, ValueType t,int val,...){
+void createArray(Array* array, bool hasSub, ValueType t,int val,...){
     va_list ptr;
     va_start(ptr, val);
-    Array* array = (Array*)malloc(sizeof(Array));
     array->as.number = NULL;
     array->capacity = 0;
     array->count = 0;
@@ -28,26 +38,51 @@ Array* createArray(bool hasSub, ValueType t,int val,...){
             array->capacity = GROW_CAPACITY(oldCapacity);
             switch (t)
             {
+            case VAL_KEY:
+                array->as.keys = GROW_ARRAY(Key, array->as.keys, 
+                                        oldCapacity, array->capacity);
+                break;
             case VAL_NUMBER:
                 array->as.number = GROW_ARRAY(double, array->as.number,
-                                       oldCapacity, array->capacity);
+                                        oldCapacity, array->capacity);
                 break;
             case VAL_CHAR:
                 array->as.character = GROW_ARRAY(char,array->as.character,
-                                       oldCapacity, array->capacity);
+                                        oldCapacity, array->capacity);
+                break;
             }
             
         }
         switch (t)
         {
-        case VAL_NUMBER : array->as.number[i] = *(double*)va_arg(ptr,void*);
+        case VAL_KEY :
+            array->as.keys[i] = *(Key*)va_arg(ptr,void*);
             break;
-        case VAL_CHAR : array->as.character[i] = *(char*)va_arg(ptr,void*);
+        case VAL_NUMBER : 
+            array->as.number[i] = *(double*)va_arg(ptr,void*);
+            break;
+        case VAL_CHAR : 
+            array->as.character[i] = *(char*)va_arg(ptr,void*);
             break;
         }
         array->count++;
     }
-    return array;
+}
+
+void freeArray(Array* array){
+    switch(array->type)
+        {
+            case VAL_KEY:
+                FREE_ARRAY(Key, array->as.keys, array->capacity);
+                break;
+            case VAL_NUMBER:
+                FREE_ARRAY(double, array->as.number, array->capacity);
+                break;
+            case VAL_CHAR:
+                FREE_ARRAY(char, array->as.character, array->capacity);
+                break;
+        }
+        free(array);
 }
 
 /*
@@ -61,6 +96,10 @@ void writeToArray(Array* array,const void* val){
         array->capacity = GROW_CAPACITY(oldCapacity);
         switch (array->type)
         {
+        case VAL_KEY:
+            array->as.keys = GROW_ARRAY(Key, array->as.keys,
+                                    oldCapacity, array->capacity);
+            break;
         case VAL_NUMBER:
             array->as.number = GROW_ARRAY(double, array->as.number,
                                     oldCapacity, array->capacity);
@@ -68,11 +107,14 @@ void writeToArray(Array* array,const void* val){
         case VAL_CHAR:
             array->as.character = GROW_ARRAY(char,array->as.character,
                                     oldCapacity, array->capacity);
+            break;
         }
     }
   
     switch (array->type)
     {
+    case VAL_KEY : array->as.keys[array->count] = *(Key*)val;
+        break;
     case VAL_NUMBER : array->as.number[array->count] = *(double*)val;
         break;
     case VAL_CHAR : array->as.character[array->count] = *(char*)val;
@@ -82,15 +124,10 @@ void writeToArray(Array* array,const void* val){
 }
 
 /*
-Frees the memory being used by an array
-@param arr The array array containing the array to be freed
-@param array The array to free
+Marks array as garbage for later collection
 */
 void trashArray(Array* array){
     array->garbage = true;
-    
-    
-    //arr->count--;
 }
 
 /*
@@ -128,6 +165,9 @@ void freeValueArray(ArrayArray* array) {
     for (int i = 0; i < array->count; i++){
         switch(array->values[i].type)
         {
+            case VAL_KEY:
+                FREE_ARRAY(Key, array->values[i].as.keys, array->values[i].capacity);
+                break;
             case VAL_NUMBER:
                 FREE_ARRAY(double, array->values[i].as.number, array->values[i].capacity);
                 break;
@@ -152,6 +192,9 @@ void printValue(Array value) {
                 printf(",");
             switch (value.type)
             {
+            case VAL_NIL: 
+                printf("VAL NIL\n");
+                break;
             case VAL_NUMBER: 
                 printf("%g",value.as.number[i]);
                 break;
