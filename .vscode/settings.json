@@ -1,6 +1,10 @@
 {
     "files.associations": {
         "stdio.h": "c",
-        "type_traits": "c"
+        "type_traits": "c",
+        "limits": "c",
+        "tokenscanner.h": "c",
+        "string.h": "c",
+        "value.h": "c"
     }
 }
