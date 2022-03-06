@@ -28,9 +28,11 @@ static void runtimeError(const char* format, ...) {
 void initVM() {
     resetStack();
     initTable(&vm.strings);
+    initTable(&vm.globals);
 }
 
 void freeVM() {
+  freeTable(&vm.globals);
   freeTable(&vm.strings);
 }
 
@@ -121,7 +123,15 @@ static bool isFalsey(Array array){
 static InterpretResult run() {
 #define READ_BYTE() (*vm.ip++)
 #define READ_CONSTANT() &(vm.chunk->constantArrays.values[READ_BYTE()])
-  for (;;) {
+#define READ_KEY() &(vm.chunk->keys.as.keys[READ_BYTE()])
+printf("printing table vars\n");
+  for (int i = 0; i < vm.strings.capacity; i++){
+    if(&vm.strings.entries[i].key != NULL){
+      printf("key at %d memloc %p is %s\n", i, &vm.strings.entries[i].key->value,&vm.strings.entries[i].key->value);
+    }
+  }
+    for (;;)
+    {
     #ifdef DEBUG_TRACE_EXECUTION
     printf("          ");
     for (Array** slot = vm.stack; slot < vm.stackTop; slot++) {
@@ -155,6 +165,26 @@ static InterpretResult run() {
         push(a);
         break;
       }
+      case OP_POP:      trashArray(pop()); break;
+      case OP_GET_GLOBAL: {
+        printf("getting key\n");
+        Key* name = READ_KEY();
+        printf("Key is %s\n",name->value);
+        Array* value;
+        if (!tableGet(&vm.globals, name, value)) {
+          runtimeError("Undefined variable '%s'.", name->value);
+          return INTERPRET_RUNTIME_ERROR;
+        }
+        push(value);
+        break;
+      }
+      case OP_DEFINE_GLOBAL: {
+        Key* k = READ_KEY();
+        bool success = tableSet(&vm.globals, k, peek(0));
+        //printf("write result: %s\n", success ? "pass" : "fail");
+        pop();
+        break;
+      }
       case OP_ADD:      binaryOp('+'); break;
       case OP_SUBTRACT: binaryOp('-'); break;
       case OP_MULTIPLY: binaryOp('*'); break;
@@ -172,6 +202,11 @@ static InterpretResult run() {
         push(arr);
         break;
       }
+      case OP_PRINT: {
+        printValue(*pop());
+        printf("\n");
+        break;
+      }
       case OP_RETURN: {
         #ifdef DEBUG_GARBAGE_COLLECTION
         printf("runtime vars in mem: ");
@@ -186,9 +221,6 @@ static InterpretResult run() {
           }
           printf("\n");
         #endif
-        Array *val = pop();
-        printValue(*val);
-        printf("\n");
         return INTERPRET_OK;
       }
     }
@@ -196,13 +228,14 @@ static InterpretResult run() {
 
 #undef READ_BYTE
 #undef READ_CONSTANT
+#undef READ_KEY
 }
 
 InterpretResult interpret(const char* source) {
   Chunk chunk;
   initChunk(&chunk);
 
-  if (!compile(source, &chunk,vm)) {
+  if (!compile(source, &chunk,&vm)) {
     freeChunk(&chunk);
     return INTERPRET_COMPILE_ERROR;
   }

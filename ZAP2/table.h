@@ -1,6 +1,7 @@
 #ifndef clox_table_h
 #define clox_table_h
 
+#include "codeChunk.h"
 #include "common.h"
 #include "value.h"
 
@@ -22,7 +23,7 @@ bool tableSet(Table* table, struct Key* key, struct Array* value);
 bool tableGet(Table* table, struct Key* key, struct Array* value);
 bool tableDelete(Table* table, struct Key* key);
 
-Key* tableFindkey(Table* table, const char* chars,
+po tableFindKey(Table* table, const char* chars,
                            int length, uint32_t hash);
 
 void tableAddAll(Table* from, Table* to);

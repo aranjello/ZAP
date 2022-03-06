@@ -113,21 +113,31 @@ void tableAddAll(Table* from, Table* to) {
   }
 }
 
-Key* tableFindString(Table* table, const char* chars,
+po tableFindKey(Table* table, const char* chars,
                            int length, uint32_t hash) {
+  po p;
   if (table->count == 0) return NULL;
-
-  uint32_t index = hash % table->capacity;
+  for (int i = 0; i < table->capacity; i++){
+    if(&table->entries[i].key != NULL){
+      printf("key at %d in find is %s\n", i, &table->entries[i].key->value);
+    }
+  }
+    uint32_t index = hash % table->capacity;
   for (;;) {
     Entry* entry = &table->entries[index];
+    
     if (entry->key == NULL) {
       // Stop if we find an empty non-tombstone entry.
-      if (entry->value == NULL) return NULL;
+      if (entry->value == NULL) return po p{.ptr = NULL,.offset = 0};
+      
     } else if (entry->key->length == length &&
         entry->key->hash == hash &&
         memcmp(entry->key->value, chars, length) == 0) {
       // We found it.
-      return entry->key;
+      po p;
+      p.ptr = entry->key;
+      p.offset = index;
+      return p;
     }
 
     index = (index + 1) % table->capacity;

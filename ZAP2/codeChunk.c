@@ -42,9 +42,11 @@ Add an array to the chunks list of tracked arrays
 @param chunk The chunk to add to
 @param value The array to add
 */
-int addArray(Chunk* chunk, Array value) {
-  writeValueArray(&chunk->constantArrays, value);
-  return chunk->constantArrays.count - 1;
+po addArray(Chunk* chunk, Array value) {
+  po p;
+  p.ptr = writeValueArray(&chunk->constantArrays, value);
+  p.offset = chunk->constantArrays.count - 1;
+  return p;
 }
 
 Array* addRunTimeArray(Chunk *chunk, Array array){
@@ -54,9 +56,11 @@ Array* addRunTimeArray(Chunk *chunk, Array array){
   return &chunk->runTimeArrays.values[chunk->runTimeArrays.count - 1];
 }
 
-int addKey(Chunk* chunk, Key k){
-  writeToArray(&chunk->keys, &k);
-  return chunk->keys.count - 1;
+po addKey(Chunk* chunk, Key k){
+  po p;
+  p.ptr = writeToArray(&chunk->keys, &k);
+  p.offset = chunk->keys.count - 1;
+  return p;
 }
 
 /*

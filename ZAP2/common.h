@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-//#define DEBUG_TOKEN_CREATION
+#define DEBUG_TOKEN_CREATION
 #define DEBUG_TRACE_EXECUTION
 //#define DEBUG_GARBAGE_COLLECTION
 

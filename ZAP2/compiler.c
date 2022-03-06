@@ -42,7 +42,7 @@ Parser parser;
 
 Chunk* compilingChunk;
 
-VM currVM;
+VM* currVM;
 
 /*
 get the current chunk we are working in
@@ -86,7 +86,7 @@ static void advance() {
       if(parser.current.type == TOKEN_EOF)
         printf("currtoken is EOF\n");
       else
-        printf("currtoken is %.*s\n",parser.current.length, parser.current.start);
+        printf("currtoken is %.*s Type is %d\n",parser.current.length, parser.current.start, parser.current.type);
     #endif
     if (parser.current.type != TOKEN_ERROR) break;
 
@@ -108,6 +108,7 @@ static bool check(TokenType type) {
 }
 
 static bool match(TokenType type) {
+  printf("checking %.*s\n", parser.current.length, parser.current.start);
   if (!check(type)) return false;
   advance();
   return true;
@@ -127,7 +128,7 @@ static void emitReturn() {
 }
 
 static uint8_t makeConstant() {
-  int constant = addArray(currentChunk(), tempArray);
+  int constant = addArray(currentChunk(), tempArray).offset;
   if (constant > UINT8_MAX) {
     error("Too many constants in one chunk.");
     return 0;
@@ -150,6 +151,39 @@ static void declaration();
 static ParseRule* getRule(TokenType type);
 static void parsePrecedence(Precedence precedence);
 
+static uint32_t hashString(const char* key, int length) {
+  uint32_t hash = 2166136261u;
+  for (int i = 0; i < length; i++) {
+    hash ^= (uint8_t)key[i];
+    hash *= 16777619;
+  }
+  return hash;
+}
+
+static uint8_t parseVariable(const char* errorMessage) {
+  consume(TOKEN_IDENTIFIER, errorMessage);
+  Key k;
+  po p = addKey(currentChunk(), k);
+  Key *key = (Key*)p.ptr;
+  key->value = malloc(sizeof(char) * parser.previous.length);
+  memcpy(key->value, parser.previous.start, parser.previous.length);
+  key->hash = hashString(parser.previous.start, parser.previous.length);
+  key->length = parser.previous.length;
+  
+  printf("hashed %s pointer is %p and got %lu\n", key->value, key->value, key->hash);
+  
+  tableSet(&currVM->strings, key, NULL);
+  Array* a;
+  bool found = tableGet(&currVM->strings, p.ptr, a);
+  printf("the val is %s\n", found ? "found" : "not found");
+  //Key *testK = tableFindkey(&currVM.strings, k->value, k->length, k->hash);
+  return (uint8_t)p.offset;
+}
+
+static void defineVariable(uint8_t global) {
+  emitBytes(OP_DEFINE_GLOBAL, global);
+}
+
 static void binary() {
   TokenType operatorType = parser.previous.type;
   ParseRule* rule = getRule(operatorType);
@@ -168,19 +202,71 @@ static void expression() {
   parsePrecedence(PREC_ASSIGNMENT);
 }
 
+static void varDeclaration() {
+  uint8_t global = parseVariable("Expect variable name.");
+
+  if (match(TOKEN_EQUAL)) {
+    expression();
+  } else {
+    Array a;
+    initEmptyArray(&a, VAL_NIL);
+    int constant = addArray(currentChunk(), a).offset;
+    if (constant > UINT8_MAX) {
+      error("Too many constants in one chunk.");
+      return;
+    }
+    initEmptyArray(&a, VAL_NIL);
+    emitBytes(OP_ARRAY, constant);
+  }
+
+  defineVariable(global);
+}
+
+static void expressionStatement() {
+  expression();
+  emitByte(OP_POP);
+}
+
 static void printStatement() {
   expression();
-  consume(TOKEN_SEMI, "Expect ';' after value.");
   emitByte(OP_PRINT);
 }
 
+static void synchronize() {
+  parser.panicMode = false;
+
+  while (parser.current.type != TOKEN_EOF) {
+    switch (parser.current.type) {
+      case TOKEN_CLASS:
+      case TOKEN_FUN:
+      case TOKEN_ARRAY:
+        return;
+
+      default:
+        ; // Do nothing.
+    }
+
+    advance();
+  }
+}
+
 static void declaration() {
-  statement();
+  if (match(TOKEN_VAR)) {
+    printf("definining var\n");
+    varDeclaration();
+  } else {
+    printf("checking statemetn\n");
+    statement();
+  }
+
+  if (parser.panicMode) synchronize();
 }
 
 static void statement() {
-  if (match(TOKEN_PRINT)) {
+  if (match(TOKEN_BANG)) {
     printStatement();
+  } else {
+    expressionStatement();
   }
 }
 
@@ -251,6 +337,8 @@ static bool isDigit(char c) {
   return c >= '0' && c <= '9';
 }
 
+
+
 static void parseArray(){
   
   const char *arr = parser.previous.start+1;
@@ -274,6 +362,7 @@ static void parseArray(){
     }
     char c = '\0';
     writeToArray(&tempArray, &c);
+    tempArray.hash = hashString(tempArray.as.character,tempArray.count);
   }
   
   emitArray();
@@ -301,24 +390,40 @@ static void unary() {
   }
 }
 
-static uint32_t hashString(const char* key, int length) {
-  uint32_t hash = 2166136261u;
-  for (int i = 0; i < length; i++) {
-    hash ^= (uint8_t)key[i];
-    hash *= 16777619;
+static void namedVariable(Token name) {
+  
+  Key *k = malloc(sizeof(Key));
+  
+  k->value = malloc(sizeof(char) * name.length);
+  memcpy(k->value, name.start, name.length);
+
+  k->hash = hashString(name.start, name.length);
+  k->length = name.length;
+  printf("hashed %s and got %lu\n", k->value, k->hash);
+  
+  Key *testK = tableFindKey(&currVM->strings, k->value, k->length, k->hash);
+  printf("test k was %s\n", testK == NULL? "not found": "found");
+  uint8_t arg = 0;
+  if(testK == NULL){
+    tableSet(&currVM->strings, k, NULL);
+    uint8_t arg = (uint8_t)addKey(currentChunk(), *k).offset;
+  }else{
+    for (int i = 0; i < &currVM->strings.capacity; i++){
+      if(&currVM->strings.entries[i] != NULL &&
+      memcmp(&currVM->strings.entries[i].key->value,
+        k->value,k->length)){
+          arg = i;
+          break;
+        }
+    }
+      
   }
-  return hash;
+  
+  emitBytes(OP_GET_GLOBAL, arg);
 }
 
-static void makeKey(){
-  Key* k;
-  tableSet(&currVM.strings, k, NULL);
-  k->value = malloc(sizeof(char) * parser.previous.length);
-  memcpy(k->value, parser.previous.start, parser.previous.length);
-  k->hash = hashString(parser.previous.start, parser.previous.length);
-  k->length = parser.previous.length;
-  printf("hashed %s and got %g\n", k->value, k->hash);
-  addKey(currentChunk(), *k);
+static void variable() {
+  namedVariable(parser.previous);
 }
 
 ParseRule rules[] = {
@@ -345,7 +450,7 @@ ParseRule rules[] = {
     [TOKEN_GREATER_EQUAL] = {NULL, NULL, PREC_NONE},
     [TOKEN_LESS] = {NULL, NULL, PREC_NONE},
     [TOKEN_LESS_EQUAL] = {NULL, NULL, PREC_NONE},
-    [TOKEN_IDENTIFIER] = {makeKey, NULL, PREC_NONE},
+    [TOKEN_IDENTIFIER] = {variable, NULL, PREC_NONE},
     //[TOKEN_STRING]        = {NULL,     NULL,   PREC_NONE},
     [TOKEN_NUMBER] = {number, NULL, PREC_NONE},
     [TOKEN_CHAR] = {character, chainChar, PREC_NONE},
@@ -389,7 +494,7 @@ static ParseRule* getRule(TokenType type) {
   return &rules[type];
 }
 
-bool compile(const char* source, Chunk* chunk, VM vm) {
+bool compile(const char* source, Chunk* chunk, VM* vm) {
   currVM = vm;
   initScanner(source);
   compilingChunk = chunk;

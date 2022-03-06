@@ -190,8 +190,9 @@ static TokenType identifierType() {
             }
         }
         break;
-        case 'n': return checkKeyword(1, 2, "ull", TOKEN_NULL);
+        case 'n': return checkKeyword(1, 3, "ull", TOKEN_NULL);
         case 't': return checkKeyword(1, 3, "rue", TOKEN_TRUE);
+        case 'v': return checkKeyword(1, 2, "ar", TOKEN_VAR);
     }
   return TOKEN_IDENTIFIER;
 }
@@ -282,7 +283,7 @@ Token scanToken() {
         case '*': return makeToken(TOKEN_STAR);
         case '!':
         return makeToken(
-            match('=') ? TOKEN_BANG_EQUAL : TOKEN_BANG_MODIFY);
+            match('=') ? TOKEN_BANG_EQUAL : TOKEN_BANG);
         case '=':
         return makeToken(
             match('=') ? TOKEN_EQUAL_EQUAL : TOKEN_EQUAL);

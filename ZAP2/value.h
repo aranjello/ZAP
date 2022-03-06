@@ -22,6 +22,7 @@ typedef struct Key{
 typedef struct Array{
   int capacity;
   int count;
+  uint32_t hash;
   ValueType type;
   bool hasSubArray;
   bool garbage;
@@ -39,12 +40,14 @@ typedef struct ArrayArray{
   Array* values;
 } ArrayArray;
 
+
+
 void initEmptyArray(Array* array, ValueType t);
 void initArray(Array* array, bool hasSub, ValueType t, int val,...);
-void writeToArray(Array* array,const void * val);
+void * writeToArray(Array* array,const void * val);
 void trashArray(Array *array);
 void initValueArray(ArrayArray* array);
-void writeValueArray(ArrayArray* array, Array value);
+void*  writeValueArray(ArrayArray* array, Array value);
 void freeValueArray(ArrayArray* array);
 void printValue(Array value);
 

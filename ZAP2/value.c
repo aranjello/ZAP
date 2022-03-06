@@ -90,7 +90,7 @@ Writes a new value to an already existing array
 @param array The array to be added to
 @param val The value to be added
 */
-void writeToArray(Array* array,const void* val){
+void * writeToArray(Array* array,const void* val){
     if (array->capacity < array->count + 1) {
         int oldCapacity = array->capacity;
         array->capacity = GROW_CAPACITY(oldCapacity);
@@ -110,17 +110,21 @@ void writeToArray(Array* array,const void* val){
             break;
         }
     }
-  
+    array->count++;
     switch (array->type)
     {
-    case VAL_KEY : array->as.keys[array->count] = *(Key*)val;
+    case VAL_KEY : array->as.keys[array->count-1] = *(Key*)val;
+        return &array->as.keys[array->count - 1];
         break;
-    case VAL_NUMBER : array->as.number[array->count] = *(double*)val;
+    case VAL_NUMBER : array->as.number[array->count-1] = *(double*)val;
+        return &array->as.number[array->count - 1];
         break;
-    case VAL_CHAR : array->as.character[array->count] = *(char*)val;
+    case VAL_CHAR : array->as.character[array->count-1] = *(char*)val;
+        return &array->as.number[array->count - 1];
         break;
     }
-    array->count++;
+     
+    
 }
 
 /*
@@ -145,7 +149,7 @@ Adds a new array to the ArrayArray for a chunk\
 @param array The array to add to
 @param value The array to add
 */
-void writeValueArray(ArrayArray* array, Array value) {
+void* writeValueArray(ArrayArray* array, Array value) {
   if (array->capacity < array->count + 1) {
     int oldCapacity = array->capacity;
     array->capacity = GROW_CAPACITY(oldCapacity);
@@ -155,6 +159,7 @@ void writeValueArray(ArrayArray* array, Array value) {
 
   array->values[array->count] = value;
   array->count++;
+  return &array->values[array->count];
 }
 
 /*

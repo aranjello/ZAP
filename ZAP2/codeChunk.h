@@ -8,6 +8,10 @@ typedef enum
 {
     OP_ARRAY,
     OP_LOOKUP,
+    OP_PRINT,
+    OP_POP,
+    OP_DEFINE_GLOBAL,
+    OP_GET_GLOBAL,
     OP_EQUAL,
     OP_GREATER,
     OP_LESS,
@@ -31,11 +35,16 @@ typedef struct {
     Array keys;
 } Chunk;
 
+typedef struct{
+  void *ptr;
+  int offset;
+} po;
+
 void initChunk(Chunk* chunk);
 void freeChunk(Chunk* chunk);
 void writeChunk(Chunk* chunk, uint8_t byte, int line);
-int addArray(Chunk* chunk, Array array);
+po addArray(Chunk* chunk, Array array);
 Array* addRunTimeArray(Chunk *chunk, Array array);
-int addKey(Chunk *chunk, Key k);
+po addKey(Chunk *chunk, Key k);
 
 #endif
