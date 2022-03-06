@@ -29,6 +29,7 @@ void initVM() {
     resetStack();
     initTable(&vm.strings);
     initTable(&vm.globals);
+    initEmptyArray(&vm.globKeys, VAL_KEY);
 }
 
 void freeVM() {
@@ -123,11 +124,12 @@ static bool isFalsey(Array array){
 static InterpretResult run() {
 #define READ_BYTE() (*vm.ip++)
 #define READ_CONSTANT() &(vm.chunk->constantArrays.values[READ_BYTE()])
-#define READ_KEY() &(vm.chunk->keys.as.keys[READ_BYTE()])
-printf("printing table vars\n");
-  for (int i = 0; i < vm.strings.capacity; i++){
-    if(&vm.strings.entries[i].key != NULL){
-      printf("key at %d memloc %p is %s\n", i, &vm.strings.entries[i].key->value,&vm.strings.entries[i].key->value);
+#define READ_KEY() &(vm.globKeys.as.keys[READ_BYTE()]);
+  printf("printing table vars\n");
+  for (int i = 0; i < vm.globals.capacity; i++){
+    if(vm.globals.entries[i].key != NULL){
+      printf("key at %d memloc %p is %s val loc is %p", i, vm.globals.entries[i].key->value,vm.globals.entries[i].key->value,vm.globals.entries[i].value);
+      printValue(*vm.globals.entries[i].value);
     }
   }
     for (;;)
@@ -151,6 +153,7 @@ printf("printing table vars\n");
     }
     case OP_ARRAY: {
           Array *constant = READ_CONSTANT();
+          printf("pushing array with memloc %p\n", constant);
           push(constant);
           break;
       }
@@ -167,19 +170,19 @@ printf("printing table vars\n");
       }
       case OP_POP:      trashArray(pop()); break;
       case OP_GET_GLOBAL: {
-        printf("getting key\n");
         Key* name = READ_KEY();
-        printf("Key is %s\n",name->value);
-        Array* value;
-        if (!tableGet(&vm.globals, name, value)) {
-          runtimeError("Undefined variable '%s'.", name->value);
-          return INTERPRET_RUNTIME_ERROR;
-        }
+        Array* value = tableGet(&vm.globals, name);
+        // if (!tableGet(&vm.globals, name, value)) {
+        //   runtimeError("Undefined variable '%s'.", name->value);
+        //   return INTERPRET_RUNTIME_ERROR;
+        // }
+        printValue(*value);
         push(value);
         break;
       }
       case OP_DEFINE_GLOBAL: {
         Key* k = READ_KEY();
+        printf("peek mem loc %p\n", peek(0));
         bool success = tableSet(&vm.globals, k, peek(0));
         //printf("write result: %s\n", success ? "pass" : "fail");
         pop();
@@ -244,6 +247,14 @@ InterpretResult interpret(const char* source) {
   vm.ip = vm.chunk->code;
 
   InterpretResult result = run();
-  freeChunk(&chunk);
+  // /freeChunk(&chunk);
   return result;
+}
+
+
+po addGlobKey(VM* vm, Key k){
+  po p;
+  p.ptr = writeToArray(&vm->globKeys, &k);
+  p.offset = vm->globKeys.count - 1;
+  return p;
 }

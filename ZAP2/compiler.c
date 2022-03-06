@@ -163,19 +163,19 @@ static uint32_t hashString(const char* key, int length) {
 static uint8_t parseVariable(const char* errorMessage) {
   consume(TOKEN_IDENTIFIER, errorMessage);
   Key k;
-  po p = addKey(currentChunk(), k);
+  po p = addGlobKey(currVM, k);
   Key *key = (Key*)p.ptr;
   key->value = malloc(sizeof(char) * parser.previous.length);
+  //printf("key pointer %p\n", key->value);
   memcpy(key->value, parser.previous.start, parser.previous.length);
   key->hash = hashString(parser.previous.start, parser.previous.length);
   key->length = parser.previous.length;
   
-  printf("hashed %s pointer is %p and got %lu\n", key->value, key->value, key->hash);
+  //printf("hashed %s pointer is %p and got %lu\n", key->value, key->value, key->hash);
   
   tableSet(&currVM->strings, key, NULL);
   Array* a;
-  bool found = tableGet(&currVM->strings, p.ptr, a);
-  printf("the val is %s\n", found ? "found" : "not found");
+  //printf("the val is %s\n", found ? "found" : "not found");
   //Key *testK = tableFindkey(&currVM.strings, k->value, k->length, k->hash);
   return (uint8_t)p.offset;
 }
@@ -399,24 +399,14 @@ static void namedVariable(Token name) {
 
   k->hash = hashString(name.start, name.length);
   k->length = name.length;
-  printf("hashed %s and got %lu\n", k->value, k->hash);
+  //printf("hashed %s and got %lu\n", k->value, k->hash);
   
-  Key *testK = tableFindKey(&currVM->strings, k->value, k->length, k->hash);
-  printf("test k was %s\n", testK == NULL? "not found": "found");
-  uint8_t arg = 0;
-  if(testK == NULL){
+  po p = tableFindKey(&currVM->strings, k->value, k->length, k->hash);
+  //printf("test k was %s\n", p.ptr == NULL? "not found": "found");
+  uint8_t arg = p.offset;
+  if(p.ptr == NULL){
     tableSet(&currVM->strings, k, NULL);
-    uint8_t arg = (uint8_t)addKey(currentChunk(), *k).offset;
-  }else{
-    for (int i = 0; i < &currVM->strings.capacity; i++){
-      if(&currVM->strings.entries[i] != NULL &&
-      memcmp(&currVM->strings.entries[i].key->value,
-        k->value,k->length)){
-          arg = i;
-          break;
-        }
-    }
-      
+    uint8_t arg = (uint8_t)addGlobKey(currVM, *k).offset;
   }
   
   emitBytes(OP_GET_GLOBAL, arg);

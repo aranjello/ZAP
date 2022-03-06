@@ -1,5 +1,5 @@
-#ifndef clox_compiler_h
-#define clox_compiler_h
+#ifndef ZAP_compiler_h
+#define ZAP_compiler_h
 
 #include "vm.h"
 

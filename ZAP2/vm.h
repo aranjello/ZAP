@@ -1,5 +1,5 @@
-#ifndef clox_vm_h
-#define clox_vm_h
+#ifndef ZAP_vm_h
+#define ZAP_vm_h
 
 #include "codeChunk.h"
 #include "value.h"
@@ -12,6 +12,7 @@ typedef struct {
   uint8_t* ip;
   Array* stack[STACK_MAX];
   Array** stackTop;
+  Array globKeys;
   Table globals;
   Table strings;
 } VM;
@@ -27,5 +28,6 @@ void freeVM();
 InterpretResult interpret(const char* source);
 void push(Array* value);
 Array* pop();
+po addGlobKey(VM *vm, Key k);
 
 #endif

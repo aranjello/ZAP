@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "memory.h"
 #include "table.h"
@@ -28,7 +29,6 @@ static Entry* findEntry(Entry* entries, int capacity,
   for (;;) {
     Entry* entry = &entries[index];
     if (entry->key == NULL) {
-        Array *a = entry->value;
         if (entry->value == NULL)
         {
             // Empty entry.
@@ -46,14 +46,14 @@ static Entry* findEntry(Entry* entries, int capacity,
   }
 }
 
-bool tableGet(Table* table, struct Key* key, struct Array* value) {
+Array * tableGet(Table* table, Key* key) {
   if (table->count == 0) return false;
-
+  
   Entry* entry = findEntry(table->entries, table->capacity, key);
   if (entry->key == NULL) return false;
 
-  value = entry->value;
-  return true;
+  return entry->value;
+
 }
 
 static void adjustCapacity(Table* table, int capacity) {
@@ -78,6 +78,7 @@ static void adjustCapacity(Table* table, int capacity) {
 }
 
 bool tableSet(Table* table, Key* key, struct Array* value) {
+  printf("++++++++++++++++SETTING TABLE++++++++++++++++\n");
   if (table->count + 1 > table->capacity * TABLE_MAX_LOAD) {
     int capacity = GROW_CAPACITY(table->capacity);
     adjustCapacity(table, capacity);
@@ -87,8 +88,16 @@ bool tableSet(Table* table, Key* key, struct Array* value) {
   if (isNewKey && entry->value == NULL) table->count++;
 
   entry->key = key;
+  
   entry->value = value;
+  printf("new key is %s at ptr %p with value", entry->key->value, entry->key->value);
+  if(value != NULL){
+    printValue(*entry->value);
+    printf("at location %p", entry->value);
+  }
+  printf("\n");
   return isNewKey;
+  
 }
 
 bool tableDelete(Table* table, Key* key) {
@@ -116,10 +125,12 @@ void tableAddAll(Table* from, Table* to) {
 po tableFindKey(Table* table, const char* chars,
                            int length, uint32_t hash) {
   po p;
-  if (table->count == 0) return NULL;
+  p.ptr = NULL;
+  p.offset = 0;
+  if (table->count == 0) return p;
   for (int i = 0; i < table->capacity; i++){
-    if(&table->entries[i].key != NULL){
-      printf("key at %d in find is %s\n", i, &table->entries[i].key->value);
+    if(table->entries[i].key != NULL){
+      printf("key at %d in find is %s\n", i, table->entries[i].key->value);
     }
   }
     uint32_t index = hash % table->capacity;
@@ -128,15 +139,14 @@ po tableFindKey(Table* table, const char* chars,
     
     if (entry->key == NULL) {
       // Stop if we find an empty non-tombstone entry.
-      if (entry->value == NULL) return po p{.ptr = NULL,.offset = 0};
+      if (entry->value == NULL) return p;
       
     } else if (entry->key->length == length &&
         entry->key->hash == hash &&
         memcmp(entry->key->value, chars, length) == 0) {
       // We found it.
-      po p;
       p.ptr = entry->key;
-      p.offset = index;
+      p.offset = entry->key->loc;
       return p;
     }
 

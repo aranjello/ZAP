@@ -1,13 +1,13 @@
-#ifndef clox_table_h
-#define clox_table_h
+#ifndef ZAP_table_h
+#define ZAP_table_h
 
+#include "value.h"
 #include "codeChunk.h"
 #include "common.h"
-#include "value.h"
 
 typedef struct Entry{
-  struct Key* key;
-  struct Array* value;
+  Key* key;
+  Array* value;
 } Entry;
 
 typedef struct Table{
@@ -19,9 +19,9 @@ typedef struct Table{
 void initTable(Table* table);
 void freeTable(Table* table);
 
-bool tableSet(Table* table, struct Key* key, struct Array* value);
-bool tableGet(Table* table, struct Key* key, struct Array* value);
-bool tableDelete(Table* table, struct Key* key);
+bool tableSet(Table* table, Key* key,  Array* value);
+Array* tableGet(Table* table, Key* key);
+bool tableDelete(Table* table,  Key* key);
 
 po tableFindKey(Table* table, const char* chars,
                            int length, uint32_t hash);

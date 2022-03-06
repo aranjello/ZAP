@@ -12,9 +12,9 @@ static int keyInstruction(const char* name, Chunk* chunk,
                                int offset) {
   uint8_t constant = chunk->code[offset + 1];
   printf("%-16s %4d '", name, constant);
-  Key k = chunk->keys.as.keys[constant];
-    printf("%s",k.value);
-     printf("'\n");
+  //Key k = chunk->keys.as.keys[constant];
+    printf("placeholder");
+    printf("'\n");
   return offset + 2;
 }
 

@@ -1,8 +1,7 @@
-#ifndef clox_value_h
-#define clox_value_h
+#ifndef ZAP_value_h
+#define ZAP_value_h
 
 #include "common.h"
-#include "table.h"
 
 typedef enum {
   VAL_BOOL,
@@ -16,6 +15,7 @@ typedef enum {
 typedef struct Key{
     char* value;
     int length;
+    int loc;
     uint32_t hash;
 } Key;
 

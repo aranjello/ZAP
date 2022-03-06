@@ -25,7 +25,7 @@ typedef enum
     OP_RETURN,
 } OpCode;
 
-typedef struct {
+typedef struct Chunk{
     int count;
     int capacity;
     uint8_t* code;
@@ -35,7 +35,7 @@ typedef struct {
     Array keys;
 } Chunk;
 
-typedef struct{
+typedef struct po{
   void *ptr;
   int offset;
 } po;
@@ -43,8 +43,8 @@ typedef struct{
 void initChunk(Chunk* chunk);
 void freeChunk(Chunk* chunk);
 void writeChunk(Chunk* chunk, uint8_t byte, int line);
-po addArray(Chunk* chunk, Array array);
-Array* addRunTimeArray(Chunk *chunk, Array array);
-po addKey(Chunk *chunk, Key k);
+po addArray(Chunk* chunk,  Array array);
+Array* addRunTimeArray(Chunk *chunk,  Array array);
+
 
 #endif

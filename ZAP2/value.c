@@ -114,6 +114,7 @@ void * writeToArray(Array* array,const void* val){
     switch (array->type)
     {
     case VAL_KEY : array->as.keys[array->count-1] = *(Key*)val;
+        array->as.keys[array->count - 1].loc = array->count - 1;
         return &array->as.keys[array->count - 1];
         break;
     case VAL_NUMBER : array->as.number[array->count-1] = *(double*)val;

@@ -1,5 +1,5 @@
-#ifndef clox_common_h
-#define clox_common_h
+#ifndef ZAP_common_h
+#define ZAP_common_h
 
 #include <stdbool.h>
 #include <stddef.h>

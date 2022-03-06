@@ -1,5 +1,5 @@
-#ifndef clox_debug_h
-#define clox_debug_h
+#ifndef ZAP_debug_h
+#define ZAP_debug_h
 
 #include "codeChunk.h"
 
