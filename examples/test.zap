@@ -1,1 +1,7 @@
-![1,2,3]+[4,5,6]
+var apple = [5]
+
+?!apple[0];
+
+!apple
+
+apple = apple - [1];

@@ -103,7 +103,7 @@ void * createNewVal(Array* array){
             return &array->as.number[array->count - 1];
             break;
         case VAL_CHAR :
-            return &array->as.number[array->count - 1];
+            return &array->as.character[array->count - 1];
             break;
         default:
             printf("array type not set\n");
@@ -125,7 +125,7 @@ Initializes the array array of a chunk
 void initValueArray(ArrayArray* array) {
     array->capacity = 0;
     array->count = 0;
-    array->values = NULL;
+    array->values = malloc(sizeof(Array));
 }
 
 /*
@@ -177,6 +177,11 @@ void printValue(Array value) {
     printf("[");
     if(value.type == VAL_NIL)
         printf("VAL NIL");
+    if(value.type == VAL_CHAR)
+    {
+        printf("%s]", value.as.character);
+        return;
+    }
     for (int i = 0; i < value.count; i++){
         if(i>0)
             if(value.type == VAL_NUMBER || value.type == VAL_CHAR && i < value.count-1)
@@ -185,11 +190,6 @@ void printValue(Array value) {
             {
             case VAL_NUMBER: 
                 printf("%g",value.as.number[i]);
-                break;
-            case VAL_CHAR: 
-                if(value.as.character[i]=='\0')
-                    break;
-                printf("%c",value.as.character[i]);
                 break;
             case VAL_KEY:{
                     Key k = value.as.keys[i];

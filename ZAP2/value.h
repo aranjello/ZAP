@@ -22,6 +22,7 @@ typedef enum {
   VAL_CHAR,
   VAL_UNKNOWN,
   VAL_KEY,
+  VAL_ARRAY,
 } ValueType;
 
 typedef struct Array{

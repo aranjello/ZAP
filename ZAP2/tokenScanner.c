@@ -282,7 +282,7 @@ Token scanToken() {
         case '/': return makeToken(TOKEN_FORWARD_SLASH);
         case '*': return makeToken(TOKEN_STAR);
         case '?': return makeToken(
-          match('!')?TOKEN_WHILE:TOKEN_QUESTION);
+          match('!')?TOKEN_WHILE:match('?')?TOKEN_FOR:TOKEN_QUESTION);
         case '&':
           return makeToken(
               match('&') ? TOKEN_AND : TOKEN_AMP);

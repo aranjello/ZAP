@@ -118,7 +118,6 @@ bool writeLocalVar(localSpace *local, Key* k, Array* a){
 po addArray(Array array){
   po p;
   p.ptr = createValueArray(&vm.activeArrays);
-  
   *(Array*)p.ptr = array;
   p.offset = vm.activeArrays.count - 1;
   return p;
@@ -255,7 +254,12 @@ static InterpretResult run() {
       case OP_POP:      trashArray(pop()); break;
       case OP_GET_GLOBAL: {
         Key* name = READ_KEY();
+        
         Array* value = tableGet(&vm.globVars, name);
+        if (value == NULL) {
+          runtimeError("Undefined variable '%s'.", name->value);
+          return INTERPRET_RUNTIME_ERROR;
+        }
         push(value);
         break;
       }

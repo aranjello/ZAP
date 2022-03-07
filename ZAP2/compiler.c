@@ -36,6 +36,8 @@ typedef struct {
   Precedence precedence;
 } ParseRule;
 
+Array *depthArray;
+
 Array* tempArray;
 
 Parser parser;
@@ -302,10 +304,54 @@ static void whileStatement() {
 
   int exitJump = emitJump(OP_JUMP_IF_FALSE);
   emitByte(OP_POP);
-  statement();
+  do{
+    statement();
+  } while (!check(TOKEN_SEMI));
+  advance();
   emitLoop(loopStart);
   patchJump(exitJump);
   emitByte(OP_POP);
+}
+
+static void forStatement() {
+  //consume(TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
+  if (match(TOKEN_SEMI)) {
+    // No initializer.
+  } else if (match(TOKEN_VAR)) {
+    varDeclaration();
+  } else {
+    expressionStatement();
+  }
+  consume(TOKEN_SEMI, "Expect ';'.");
+
+  int loopStart = currentChunk()->count;
+  int exitJump = -1;
+  if (!match(TOKEN_SEMI)) {
+    expression();
+    consume(TOKEN_SEMI, "Expect ';' after loop condition.");
+
+    // Jump out of the loop if the condition is false.
+    exitJump = emitJump(OP_JUMP_IF_FALSE);
+    emitByte(OP_POP); // Condition.
+  }
+
+  if (!match(TOKEN_SEMI)) {
+    int bodyJump = emitJump(OP_JUMP);
+    int incrementStart = currentChunk()->count;
+    expression();
+    emitByte(OP_POP);
+    consume(TOKEN_SEMI, "Expect ')' after for clauses.");
+
+    emitLoop(loopStart);
+    loopStart = incrementStart;
+    patchJump(bodyJump);
+  }
+  statement();
+  emitLoop(loopStart);
+  if (exitJump != -1) {
+    patchJump(exitJump);
+    emitByte(OP_POP); // Condition.
+  }
 }
 
 static void statement() {
@@ -313,6 +359,8 @@ static void statement() {
     printStatement();
   } else if (match(TOKEN_QUESTION)) {
     ifStatement();
+  } else if (match(TOKEN_FOR)) {
+    forStatement();
   }else if (match(TOKEN_WHILE)) {
     whileStatement();
   } else {
@@ -382,7 +430,7 @@ Check if the input char is a digit
 @return c is a digit
 */
 static bool isDigit(char c) {
-  return c >= '0' && c <= '9';
+  return c == '-' || c >= '0' && c <= '9';
 }
 
 
@@ -403,18 +451,18 @@ static void parseArray(bool canAssign){
     };
     
   }else if(isAlpha(arr[0])){
+
     tempArray = (Array*)initEmptyArray(VAL_CHAR);
-    while (arr[0] != ']')
+    while (*arr != ']')
     {
-      *(char*)createNewVal(tempArray) = *arr;
+      *(char *)createNewVal(tempArray) = *arr;
       arr++;
     }
     *(char *)createNewVal(tempArray) = '\0';
     tempArray->hash = hashString(tempArray->as.character,tempArray->count);
-    
   }
   emitArray();
-  //consume(TOKEN_RIGHT_SQUARE, "Improperly close array");
+  advance();
 }
 
 static void lookup(bool canAssign){
@@ -483,13 +531,32 @@ static void and_(bool canAssign) {
   patchJump(endJump);
 }
 
+static void createMultiDim(bool canAssign){
+  depthArray = initArray(true, VAL_NUMBER, 1, 1);
+  tempArray = initEmptyArray(VAL_UNKNOWN);
+  tempArray->hasSubArray = true;
+  while (match(TOKEN_LEFT_SQUARE))
+  {
+    tempArray->as.array = initEmptyArray(VAL_UNKNOWN);
+    tempArray = tempArray->as.array;
+    tempArray->hasSubArray = true;
+    depthArray->as.number[0]++;
+  }
+  parseArray(canAssign);
+  ///consume(TOKEN_ARRAY, "no value in array");
+  for (int i = 0; i < currArrayDepth; i++){
+    consume(TOKEN_RIGHT_SQUARE,"unclosed array");
+  }
+    printf("array depth %d\n", currArrayDepth);
+}
+
 ParseRule rules[] = {
     [TOKEN_LEFT_PAREN] = {grouping, NULL, PREC_NONE},
     [TOKEN_RIGHT_PAREN] = {NULL, NULL, PREC_NONE},
     [TOKEN_LEFT_BRACE] = {NULL, NULL, PREC_NONE},
     [TOKEN_RIGHT_BRACE] = {NULL, NULL, PREC_NONE},
     [TOKEN_ARRAY] = {parseArray, lookup, PREC_ARRAY},
-    [TOKEN_LEFT_SQUARE] = {NULL, NULL, PREC_NONE},
+    [TOKEN_LEFT_SQUARE] = {createMultiDim, NULL, PREC_NONE},
     [TOKEN_RIGHT_SQUARE] = {NULL, NULL, PREC_NONE},
     [TOKEN_RIGHT_PAREN] = {NULL, NULL, PREC_NONE},
     [TOKEN_COMMA] = {NULL, chain, PREC_ASSIGNMENT},
