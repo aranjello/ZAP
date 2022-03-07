@@ -17,12 +17,14 @@ typedef struct po{
 
 typedef enum {
   VAL_BOOL,
-  VAL_NIL, 
   VAL_NUMBER,
   VAL_CHAR,
+  //NIL is for empty array
+  VAL_NIL, 
+  //UNKNOWN is for array being created before a type is defined
   VAL_UNKNOWN,
+  VAL_EVAL,
   VAL_KEY,
-  VAL_ARRAY,
 } ValueType;
 
 typedef struct Array{
@@ -47,7 +49,7 @@ typedef struct ArrayArray{
 } ArrayArray;
 
 void * initEmptyArray(ValueType t);
-void * initArray(bool hasSub, ValueType t, int val,...);
+void * createArray(bool hasSub, ValueType t, int val,...);
 void * createNewVal(Array* array);
 void trashArray(Array *array);
 void initValueArray(ArrayArray* array);

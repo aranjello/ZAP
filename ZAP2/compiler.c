@@ -36,9 +36,7 @@ typedef struct {
   Precedence precedence;
 } ParseRule;
 
-Array *depthArray;
-
-Array* tempArray;
+ArrayArray tempArray;
 
 Parser parser;
 
@@ -129,17 +127,20 @@ static void emitReturn() {
 }
 
 static uint8_t makeConstant() {
-  int constant = addArray(*tempArray).offset;
+  int constant = addArray(tempArray.values[0]).offset;
   if (constant > UINT8_MAX) {
     error("Too many constants in one chunk.");
     return 0;
   }
-  tempArray = (Array*)initEmptyArray(VAL_UNKNOWN);
+  //freeValueArray(&tempArray);
+ // tempArray = (Array*)initEmptyArray(VAL_UNKNOWN);
   return (uint8_t)constant;
 }
 
 static void emitArray() {
-  emitBytes(OP_ARRAY, makeConstant());
+
+    emitBytes(OP_ARRAY, makeConstant());
+
 }
 
 static void endCompiler() {
@@ -375,24 +376,24 @@ static void grouping(bool canAssign) {
 
 static void number(bool canAssign) {
   if(&tempArray == NULL){
-    tempArray = (Array*)initEmptyArray(VAL_NUMBER);
+    tempArray.values[tempArray.count-1] = *(Array*)initEmptyArray(VAL_NUMBER);
   }
-  if(tempArray->type != VAL_NUMBER){
+  if(tempArray.values[tempArray.count-1].type != VAL_NUMBER){
     errorAt(&parser.previous,"array is incorrect type for number");
     return;
   }
-  *(double*)createNewVal(tempArray) = strtod(parser.previous.start, NULL);
+  *(double*)createNewVal(&tempArray.values[tempArray.count-1]) = strtod(parser.previous.start, NULL);
 }
 
 static void character(bool canAssign){
   if(&tempArray == NULL){
-    tempArray = (Array*)initEmptyArray(VAL_CHAR);
+    tempArray.values[tempArray.count-1] = *(Array*)initEmptyArray(VAL_CHAR);
   }
-  if(tempArray->type != VAL_CHAR){
+  if(tempArray.values[tempArray.count-1].type != VAL_CHAR){
     errorAtCurrent("array is incorrect type for character");
     return;
   }
-  *(char *)createNewVal(tempArray) = *parser.previous.start;
+  *(char *)createNewVal(&tempArray.values[tempArray.count-1]) = *parser.previous.start;
 }
 
 // static void addToArray(){
@@ -406,7 +407,7 @@ static void character(bool canAssign){
 // }
 
 static void chain(bool canAssign){
-  parsePrecedence(PREC_ASSIGNMENT);
+  parsePrecedence(PREC_ARRAY);
 }
 
 static void chainChar(bool canAssign){
@@ -438,34 +439,36 @@ static bool isDigit(char c) {
 static void parseArray(bool canAssign){
   const char *arr = parser.previous.start+1;
   char *valHolder;
-  
+  printf("attempting parse type is %s\n",tempArray.values[tempArray.count - 1].type == VAL_UNKNOWN? "good": "bad");
   if(isDigit(arr[0])){
-    tempArray = (Array*)initEmptyArray(VAL_NUMBER);
+    tempArray.values[tempArray.count-1] = *(Array*)initEmptyArray(VAL_NUMBER);
      double val = strtod(arr,&valHolder);
-     *(double *)createNewVal(tempArray) = val;
+     *(double *)createNewVal(&tempArray.values[tempArray.count-1]) = val;
      while (valHolder[0] != ']')
      {
        valHolder++;
        val = strtod(valHolder, &valHolder);
-       *(double *)createNewVal(tempArray) = val;
+       *(double *)createNewVal(&tempArray.values[tempArray.count-1]) = val;
     };
     
   }else if(isAlpha(arr[0])){
 
-    tempArray = (Array*)initEmptyArray(VAL_CHAR);
+    tempArray.values[tempArray.count-1] = *(Array*)initEmptyArray(VAL_CHAR);
     while (*arr != ']')
     {
-      *(char *)createNewVal(tempArray) = *arr;
+      *(char *)createNewVal(&tempArray.values[tempArray.count-1]) = *arr;
       arr++;
     }
-    *(char *)createNewVal(tempArray) = '\0';
-    tempArray->hash = hashString(tempArray->as.character,tempArray->count);
+    *(char *)createNewVal(&tempArray.values[tempArray.count-1]) = '\0';
+    tempArray.values[tempArray.count-1].hash = hashString(tempArray.values[tempArray.count-1].as.character,tempArray.values[tempArray.count-1].count);
   }
+  printf("attempting parse type is %s\n",tempArray.values[tempArray.count - 1].hasSubArray? "good": "bad");
   emitArray();
-  advance();
+  //advance();
 }
 
 static void lookup(bool canAssign){
+  printf("attempting lookup\n");
   parseArray(canAssign);
   emitByte(OP_LOOKUP);
 }
@@ -532,22 +535,26 @@ static void and_(bool canAssign) {
 }
 
 static void createMultiDim(bool canAssign){
-  depthArray = initArray(true, VAL_NUMBER, 1, 1);
-  tempArray = initEmptyArray(VAL_UNKNOWN);
-  tempArray->hasSubArray = true;
-  while (match(TOKEN_LEFT_SQUARE))
-  {
-    tempArray->as.array = initEmptyArray(VAL_UNKNOWN);
-    tempArray = tempArray->as.array;
-    tempArray->hasSubArray = true;
-    depthArray->as.number[0]++;
-  }
-  parseArray(canAssign);
+  printf("parsing multidim1\n");
+  tempArray.values[tempArray.count-1] = *(Array*)initEmptyArray(VAL_UNKNOWN);
+  tempArray.values[tempArray.count-1].hasSubArray = true;
+  printf("parsing multidim2 array type is %s\n",tempArray.values[tempArray.count-1].type==VAL_UNKNOWN?"good":"bad");
+  *(Array*)createNewVal(&tempArray.values[tempArray.count-1]) = *(Array*)initEmptyArray(VAL_UNKNOWN);
+  //tempArray.values[tempArray.count-1] = *tempArray.values[tempArray.count-1].as.array;
+  printf("parsing multidim4\n");
+
+  *(Array*)createValueArray(&tempArray) = *tempArray.values[tempArray.count-2].as.array;
+  printf("temparray count is %d\n", tempArray.count);
+
+  printf("parsing multidim5\n");
+  parsePrecedence(PREC_ASSIGNMENT);
+  printf("return\n");
   ///consume(TOKEN_ARRAY, "no value in array");
-  for (int i = 0; i < currArrayDepth; i++){
+  int arrayCount = tempArray.count;
+  for (int i = 0; i < arrayCount-1; i++){
     consume(TOKEN_RIGHT_SQUARE,"unclosed array");
   }
-    printf("array depth %d\n", currArrayDepth);
+  tempArray.count -= arrayCount;
 }
 
 ParseRule rules[] = {
@@ -559,7 +566,7 @@ ParseRule rules[] = {
     [TOKEN_LEFT_SQUARE] = {createMultiDim, NULL, PREC_NONE},
     [TOKEN_RIGHT_SQUARE] = {NULL, NULL, PREC_NONE},
     [TOKEN_RIGHT_PAREN] = {NULL, NULL, PREC_NONE},
-    [TOKEN_COMMA] = {NULL, chain, PREC_ASSIGNMENT},
+    [TOKEN_COMMA] = {NULL, chain, PREC_ARRAY},
     [TOKEN_DOT] = {NULL, NULL, PREC_NONE},
     [TOKEN_MINUS] = {unary, binary, PREC_TERM},
     [TOKEN_PLUS] = {unary, binary, PREC_TERM},
@@ -577,7 +584,7 @@ ParseRule rules[] = {
     [TOKEN_IDENTIFIER] = {variable, NULL, PREC_NONE},
     //[TOKEN_STRING]        = {NULL,     NULL,   PREC_NONE},
     [TOKEN_NUMBER] = {number, NULL, PREC_NONE},
-    [TOKEN_CHAR] = {character, chainChar, PREC_NONE},
+    [TOKEN_CHAR] = {NULL, NULL, PREC_NONE},
     [TOKEN_AND]  = {NULL,     and_,   PREC_NONE},
     [TOKEN_CLASS] = {NULL, NULL, PREC_NONE},
     //[TOKEN_ELSE]          = {NULL,     NULL,   PREC_NONE},
@@ -600,6 +607,7 @@ ParseRule rules[] = {
 
 static void parsePrecedence(Precedence precedence) {
   advance();
+  printf("parsing precedence\n");
   ParseFn prefixRule = getRule(parser.previous.type)->prefix;
   if (prefixRule == NULL) {
     error("Expect expression.");
@@ -624,12 +632,13 @@ static ParseRule* getRule(TokenType type) {
   return &rules[type];
 }
 
-  bool compile(const char* source, Chunk* chunk, VM* vm) {
+bool compile(const char* source, Chunk* chunk, VM* vm) {
   currVM = vm;
   initScanner(source);
   compilingChunk = chunk;
   parser.hadError = false;
   parser.panicMode = false;
+  createValueArray(&tempArray);
   advance();
   while (!match(TOKEN_EOF)) {
     declaration();

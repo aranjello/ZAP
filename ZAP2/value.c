@@ -69,6 +69,7 @@ Writes a new value to an already existing array
 @param val The value to be added
 */
 void * createNewVal(Array* array){
+    printf("type is %s\n", array->type == VAL_UNKNOWN ? "good" : "bad");
     if (array->capacity < array->count + 1) {
         int oldCapacity = array->capacity;
         array->capacity = GROW_CAPACITY(oldCapacity);
@@ -85,6 +86,9 @@ void * createNewVal(Array* array){
         case VAL_CHAR:
             array->as.character = GROW_ARRAY(char,array->as.character,
                                     oldCapacity, array->capacity);
+            break;
+        case VAL_UNKNOWN:
+            array->as.array = GROW_ARRAY(Array, array->as.array, oldCapacity, array->capacity);
             break;
         default:
             printf("array type not set\n");
@@ -105,8 +109,11 @@ void * createNewVal(Array* array){
         case VAL_CHAR :
             return &array->as.character[array->count - 1];
             break;
+        case VAL_UNKNOWN :
+            return &array->as.array[array->count - 1];
+            break;
         default:
-            printf("array type not set\n");
+            printf("array type not set for return\n");
             
     }
 }
@@ -175,6 +182,11 @@ prints the values out of an array
 */
 void printValue(Array value) {
     printf("[");
+    while (value.hasSubArray)
+    {
+        value = *value.as.array;
+    }
+    printf("printing is %s\n", value.type == NULL);
     if(value.type == VAL_NIL)
         printf("VAL NIL");
     if(value.type == VAL_CHAR)
@@ -182,12 +194,17 @@ void printValue(Array value) {
         printf("%s]", value.as.character);
         return;
     }
+    
+    
     for (int i = 0; i < value.count; i++){
         if(i>0)
-            if(value.type == VAL_NUMBER || value.type == VAL_CHAR && i < value.count-1)
+            if(value.type == VAL_NUMBER)
                 printf(",");
             switch (value.type)
             {
+            case VAL_UNKNOWN: 
+                printf("not set");
+                break;
             case VAL_NUMBER: 
                 printf("%g",value.as.number[i]);
                 break;
@@ -200,6 +217,9 @@ void printValue(Array value) {
                     }
                     break;
                 }
+            default:
+                printf("dont know");
+                break;
             }
         
     }
