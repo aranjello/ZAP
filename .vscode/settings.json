@@ -5,6 +5,7 @@
         "limits": "c",
         "tokenscanner.h": "c",
         "string.h": "c",
-        "value.h": "c"
+        "value.h": "c",
+        "typeinfo": "c"
     }
 }
