@@ -3,6 +3,18 @@
 
 #include "common.h"
 
+typedef struct Key{
+    char* value;
+    int length;
+    int loc;
+    uint32_t hash;
+} Key;
+
+typedef struct po{
+  void *ptr;
+  int offset;
+} po;
+
 typedef enum {
   VAL_BOOL,
   VAL_NIL, 
@@ -11,13 +23,6 @@ typedef enum {
   VAL_UNKNOWN,
   VAL_KEY,
 } ValueType;
-
-typedef struct Key{
-    char* value;
-    int length;
-    int loc;
-    uint32_t hash;
-} Key;
 
 typedef struct Array{
   int capacity;
@@ -40,14 +45,12 @@ typedef struct ArrayArray{
   Array* values;
 } ArrayArray;
 
-
-
-void initEmptyArray(Array* array, ValueType t);
-void initArray(Array* array, bool hasSub, ValueType t, int val,...);
-void * writeToArray(Array* array,const void * val);
+void * initEmptyArray(ValueType t);
+void * initArray(bool hasSub, ValueType t, int val,...);
+void * createNewVal(Array* array);
 void trashArray(Array *array);
 void initValueArray(ArrayArray* array);
-void*  writeValueArray(ArrayArray* array, Array value);
+void * createValueArray(ArrayArray* array);
 void freeValueArray(ArrayArray* array);
 void printValue(Array value);
 

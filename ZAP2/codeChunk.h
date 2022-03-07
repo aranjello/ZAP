@@ -11,6 +11,9 @@ typedef enum
     OP_PRINT,
     OP_POP,
     OP_DEFINE_GLOBAL,
+    OP_SET_LOCAL,
+    OP_GET_LOCAL,
+    OP_SET_GLOBAL,
     OP_GET_GLOBAL,
     OP_EQUAL,
     OP_GREATER,
@@ -30,21 +33,12 @@ typedef struct Chunk{
     int capacity;
     uint8_t* code;
     int* lines;
-    ArrayArray constantArrays;
-    ArrayArray runTimeArrays;
-    Array keys;
 } Chunk;
 
-typedef struct po{
-  void *ptr;
-  int offset;
-} po;
+
 
 void initChunk(Chunk* chunk);
 void freeChunk(Chunk* chunk);
 void writeChunk(Chunk* chunk, uint8_t byte, int line);
-po addArray(Chunk* chunk,  Array array);
-Array* addRunTimeArray(Chunk *chunk,  Array array);
-
 
 #endif

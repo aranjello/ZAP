@@ -11,9 +11,17 @@ void initChunk(Chunk* chunk) {
   chunk->capacity = 0;
   chunk->code = NULL;
   chunk->lines = NULL;
-  initValueArray(&chunk->constantArrays);
-  initValueArray(&chunk->runTimeArrays);
-  initEmptyArray(&chunk->keys, VAL_KEY);
+
+}
+
+/*
+frees all memory used for a chunk
+@param chunk The chunk to free
+*/
+void freeChunk(Chunk* chunk) {
+  FREE_ARRAY(uint8_t, chunk->code, chunk->capacity);
+  FREE_ARRAY(int, chunk->lines, chunk->capacity);
+  initChunk(chunk);
 }
 
 /*
@@ -35,43 +43,4 @@ void writeChunk(Chunk* chunk, uint8_t byte, int line) {
   chunk->lines[chunk->count] = line;
   chunk->code[chunk->count] = byte;
   chunk->count++;
-}
-
-/*
-Add an array to the chunks list of tracked arrays
-@param chunk The chunk to add to
-@param value The array to add
-*/
-po addArray(Chunk* chunk, Array value) {
-  po p;
-  p.ptr = writeValueArray(&chunk->constantArrays, value);
-  p.offset = chunk->constantArrays.count - 1;
-  return p;
-}
-
-Array* addRunTimeArray(Chunk *chunk, Array array){
-  
-  writeValueArray(&chunk->runTimeArrays, array);
-  
-  return &chunk->runTimeArrays.values[chunk->runTimeArrays.count - 1];
-}
-
-po addKey(Chunk* chunk, Key k){
-  po p;
-  p.ptr = writeToArray(&chunk->keys, &k);
-  p.offset = chunk->keys.count - 1;
-  return p;
-}
-
-/*
-frees all memory used for a chunk
-@param chunk The chunk to free
-*/
-void freeChunk(Chunk* chunk) {
-  FREE_ARRAY(uint8_t, chunk->code, chunk->capacity);
-  FREE_ARRAY(int, chunk->lines, chunk->capacity);
-  FREE_ARRAY(Key, chunk->keys.as.keys, chunk->keys.capacity);
-  freeValueArray(&chunk->constantArrays);
-  freeValueArray(&chunk->runTimeArrays);
-  initChunk(chunk);
 }

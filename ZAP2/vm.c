@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdarg.h>
+#include <string.h>
 
 #include "common.h"
 #include "vm.h"
@@ -27,14 +28,21 @@ static void runtimeError(const char* format, ...) {
 
 void initVM() {
     resetStack();
-    initTable(&vm.strings);
-    initTable(&vm.globals);
-    initEmptyArray(&vm.globKeys, VAL_KEY);
+    initTable(&vm.globalInterned);
+    initTable(&vm.globVars);
+    vm.globKeys = *(Array*)initEmptyArray(VAL_KEY);
+    vm.localsCount = 0;
+    vm.localsCapacity = 0;
+    vm.localVars = NULL;
+    initValueArray(&vm.activeArrays);
 }
 
 void freeVM() {
-  freeTable(&vm.globals);
-  freeTable(&vm.strings);
+  freeTable(&vm.globVars);
+  freeTable(&vm.globalInterned);
+  freeValueArray(&vm.activeArrays);
+  FREE_ARRAY(Key, vm.globKeys.as.keys,vm.globKeys.capacity);
+  //mem for any local vars shoudl be cleared already
 }
 
 void push(Array* value) {
@@ -47,64 +55,126 @@ Array* pop() {
   return *vm.stackTop;
 }
 
+static uint32_t hashString(const char* key, int length) {
+  uint32_t hash = 2166136261u;
+  for (int i = 0; i < length; i++) {
+    hash ^= (uint8_t)key[i];
+    hash *= 16777619;
+  }
+  return hash;
+}
+
+static po allocateNewKey(Array* keyArray,const char * value, int length){
+  po p;
+  Key key;
+  key.value = malloc(sizeof(char) * length);
+  memcpy(key.value, value, length);
+  key.hash = hashString(value,length);
+  key.length = length;
+  p.ptr = createNewVal(keyArray);
+  *(Key*)p.ptr = key;
+  p.offset = keyArray->count-1;
+  return p;
+}
+
+bool internGlobString(const char * value, int length){
+  return tableSet(&vm.globalInterned, allocateNewKey(&vm.globKeys,value, length).ptr, NULL);
+}
+
+po addGlobKey(const char * value, int length){
+  return allocateNewKey(&vm.globKeys,value, length);
+}
+
+bool writeGlobalVar(Key* k, Array* a){
+  return tableSet(&vm.globVars, k, a);
+}
+
+po createLocalSpace(VM *vm){
+   if (vm->localsCapacity < vm->localsCount + 1) {
+        int oldCapacity = vm->localsCapacity;
+        vm->localsCapacity = GROW_CAPACITY(oldCapacity);
+        vm->localVars = GROW_ARRAY(localSpace, vm->localVars,
+                                    oldCapacity, vm->localsCapacity);
+   }
+   po p;
+   p.ptr = &vm->localVars[vm->localsCount];
+   p.offset = vm->localsCount;
+   vm->localsCount++;
+}
+
+bool internLocalString(localSpace *local, const char * value, int length){
+
+  return tableSet(&local->localInterned, allocateNewKey(&local->localKeys, value, length).ptr, NULL);
+}
+
+po addLocalKey(localSpace *local, const char * value, int length){
+  return allocateNewKey(&local->localKeys, value, length);
+}
+
+bool writeLocalVar(localSpace *local, Key* k, Array* a){
+  return tableSet(&local->localVars, k, a);
+}
+
+po addArray(Array array){
+  po p;
+  p.ptr = createValueArray(&vm.activeArrays);
+  
+  *(Array*)p.ptr = array;
+  p.offset = vm.activeArrays.count - 1;
+  return p;
+}
+
+
 static Array* peek(int distance) {
   return vm.stackTop[-1 - distance];
 }
-
   
-void binaryOp(char op){
+static bool binaryOp(char op){
     Array *b = pop();
     Array *a = pop();
-    Array c;
-    Array *d;
+    Array c = *(Array*)initEmptyArray(VAL_NUMBER);
 
     if(a->count != b->count){
-      initEmptyArray(&c, VAL_NIL);
-      d = addRunTimeArray(vm.chunk, c);
-      push(d);
-      return;
+      runtimeError("array size mismatch for operation %c\n", op);
+      return false;
     }
-
-    initEmptyArray(&c, a->type);
- 
-    d = addRunTimeArray(vm.chunk, c);
+    po p = addArray(c);
     for (int i = 0; i < a->count; i++){
         double value = a->as.number[i];
         switch (op)
         {
-        case '+': value += b->as.number[i]; break;
-        case '-': value -= b->as.number[i]; break;
-        case '*': value *= b->as.number[i]; break;
-        case '/': value /= b->as.number[i]; break;
-        
-        default:
-            break;
+          case '+': value += b->as.number[i]; break;
+          case '-': value -= b->as.number[i]; break;
+          case '*': value *= b->as.number[i]; break;
+          case '/': value /= b->as.number[i]; break;
+          
+          default:
+              break;
         }
-        writeToArray(d, &value);
+        *(double*)createNewVal(p.ptr) = value;
         
     }
     trashArray(a);
     trashArray(b);
-    push(d);
+    push(p.ptr);
+    return true;
 }
 
 static void getArrayVal(){
   Array *indicies = pop();
   Array* val = pop();
-  Array c;
-  Array *newArr;
-  initEmptyArray(&c, val->type);
+  Array c = *(Array*)initEmptyArray(VAL_NUMBER);
  
-  newArr = addRunTimeArray(vm.chunk, c);
+  po p = addArray(c);
 
   //printf("creating new array index is %d val ther is %g\n",ind,val->as.number[ind]);
   for (int i = 0; i < indicies->count; i++){
     switch (val->type){
       case VAL_CHAR:
-        writeToArray(newArr, &(val->as.character[(int)indicies->as.number[i]]));
+        *(char*)createNewVal(p.ptr) = (val->as.character[(int)indicies->as.number[i]]);
         break;
       case VAL_NUMBER:
-        writeToArray(newArr, &(val->as.number[(int)indicies->as.number[i]]));
+        *(double*)createNewVal(p.ptr) = (val->as.number[(int)indicies->as.number[i]]);
         break;
     }
     
@@ -113,7 +183,7 @@ static void getArrayVal(){
   //printf("arr created val is %g\n",newArr->as.number[0]);
   trashArray(indicies);
   trashArray(val);
-  push(newArr);
+  push(p.ptr);
 }
 
 //0 NULL and false all evaluate to false all other values are true
@@ -123,26 +193,21 @@ static bool isFalsey(Array array){
 
 static InterpretResult run() {
 #define READ_BYTE() (*vm.ip++)
-#define READ_CONSTANT() &(vm.chunk->constantArrays.values[READ_BYTE()])
+#define READ_CONSTANT() &(vm.activeArrays.values[READ_BYTE()])
 #define READ_KEY() &(vm.globKeys.as.keys[READ_BYTE()]);
-  printf("printing table vars\n");
-  for (int i = 0; i < vm.globals.capacity; i++){
-    if(vm.globals.entries[i].key != NULL){
-      printf("key at %d memloc %p is %s val loc is %p", i, vm.globals.entries[i].key->value,vm.globals.entries[i].key->value,vm.globals.entries[i].value);
-      printValue(*vm.globals.entries[i].value);
-    }
-  }
     for (;;)
     {
     #ifdef DEBUG_TRACE_EXECUTION
     printf("          ");
+    printf("[ ");
     for (Array** slot = vm.stack; slot < vm.stackTop; slot++) {
-      printf("[ ");
+      
       printValue(**slot);
-      printf(" ]");
+      
     }
+    printf(" ]");
     printf("\n");
-        disassembleInstruction(vm.chunk,
+        disassembleInstruction(&vm,vm.chunk,
                             (int)(vm.ip - vm.chunk->code));
     #endif
     uint8_t instruction;
@@ -153,7 +218,6 @@ static InterpretResult run() {
     }
     case OP_ARRAY: {
           Array *constant = READ_CONSTANT();
-          printf("pushing array with memloc %p\n", constant);
           push(constant);
           break;
       }
@@ -171,24 +235,30 @@ static InterpretResult run() {
       case OP_POP:      trashArray(pop()); break;
       case OP_GET_GLOBAL: {
         Key* name = READ_KEY();
-        Array* value = tableGet(&vm.globals, name);
-        // if (!tableGet(&vm.globals, name, value)) {
-        //   runtimeError("Undefined variable '%s'.", name->value);
-        //   return INTERPRET_RUNTIME_ERROR;
-        // }
-        printValue(*value);
+        Array* value = tableGet(&vm.globVars, name);
         push(value);
         break;
       }
       case OP_DEFINE_GLOBAL: {
         Key* k = READ_KEY();
-        printf("peek mem loc %p\n", peek(0));
-        bool success = tableSet(&vm.globals, k, peek(0));
+        bool success = tableSet(&vm.globVars, k, peek(0));
         //printf("write result: %s\n", success ? "pass" : "fail");
         pop();
         break;
       }
-      case OP_ADD:      binaryOp('+'); break;
+      case OP_SET_GLOBAL: {
+        Key* key = READ_KEY();
+        if (tableSet(&vm.globVars, key, peek(0))) {
+          tableDelete(&vm.globVars, key); 
+          runtimeError("Undefined variable '%s'.", key->value);
+          return INTERPRET_RUNTIME_ERROR;
+        }
+        break;
+      }
+      case OP_ADD:
+        if(!binaryOp('+'))
+          return INTERPRET_RUNTIME_ERROR;
+        break;
       case OP_SUBTRACT: binaryOp('-'); break;
       case OP_MULTIPLY: binaryOp('*'); break;
       case OP_DIVIDE:   binaryOp('/'); break;
@@ -203,6 +273,16 @@ static InterpretResult run() {
             arr->as.number[i] = -arr->as.number[i];
           }
         push(arr);
+        break;
+      }
+      case OP_GET_LOCAL: {
+        uint8_t slot = READ_BYTE();
+        push(vm.stack[slot]); 
+        break;
+      }
+      case OP_SET_LOCAL: {
+        uint8_t slot = READ_BYTE();
+        vm.stack[slot] = peek(0);
         break;
       }
       case OP_PRINT: {
@@ -249,12 +329,4 @@ InterpretResult interpret(const char* source) {
   InterpretResult result = run();
   // /freeChunk(&chunk);
   return result;
-}
-
-
-po addGlobKey(VM* vm, Key k){
-  po p;
-  p.ptr = writeToArray(&vm->globKeys, &k);
-  p.offset = vm->globKeys.count - 1;
-  return p;
 }

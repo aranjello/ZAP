@@ -4,17 +4,28 @@
 #include "codeChunk.h"
 #include "value.h"
 #include "table.h"
+#include "memory.h"
 
 #define STACK_MAX 256
+
+typedef struct localSpace{
+  Table localInterned;
+  Array localKeys;
+  Table localVars;
+} localSpace;
 
 typedef struct {
   Chunk* chunk;
   uint8_t* ip;
   Array* stack[STACK_MAX];
   Array** stackTop;
+  Table globalInterned;
   Array globKeys;
-  Table globals;
-  Table strings;
+  Table globVars;
+  int localsCount;
+  int localsCapacity;
+  localSpace *localVars;
+  ArrayArray activeArrays;
 } VM;
 
 typedef enum {
@@ -28,6 +39,16 @@ void freeVM();
 InterpretResult interpret(const char* source);
 void push(Array* value);
 Array* pop();
-po addGlobKey(VM *vm, Key k);
+
+bool internGlobString(const char * value, int length);
+po addGlobKey(const char * value, int length);
+bool writeGlobalVar(Key* k, Array* a);
+
+po createLocalSpace();
+bool internLocalString(localSpace *local, const char * value, int length);
+po addLocalKey(localSpace *local, const char * value, int length);
+bool writeLocalVar(localSpace *local, Key* k, Array* a);
+
+po addArray(Array array);
 
 #endif

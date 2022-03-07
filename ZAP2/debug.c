@@ -8,26 +8,33 @@ static int simpleInstruction(const char* name, int offset) {
   return offset + 1;
 }
 
-static int keyInstruction(const char* name, Chunk* chunk,
+static int byteInstruction(const char* name, Chunk* chunk,
+                           int offset) {
+  uint8_t slot = chunk->code[offset + 1];
+  printf("%-16s %4d\n", name, slot);
+  return offset + 2; 
+}
+
+static int keyInstruction(const char* name,VM* vm, Chunk* chunk, 
                                int offset) {
   uint8_t constant = chunk->code[offset + 1];
   printf("%-16s %4d '", name, constant);
-  //Key k = chunk->keys.as.keys[constant];
-    printf("placeholder");
+  Key k = vm->globKeys.as.keys[constant];
+    printf("%s",k.value);
     printf("'\n");
   return offset + 2;
 }
 
-static int constantInstruction(const char* name, Chunk* chunk,
+static int constantInstruction(const char* name,VM* vm, Chunk* chunk,
                                int offset) {
   uint8_t constant = chunk->code[offset + 1];
   printf("%-16s %4d '", name, constant);
-  printValue(chunk->constantArrays.values[constant]);
+  printValue(vm->activeArrays.values[constant]);
   printf("'\n");
   return offset + 2;
 }
 
-int disassembleInstruction(Chunk* chunk, int offset) {
+int disassembleInstruction(VM* vm,Chunk* chunk, int offset) {
   printf("%04d ", offset);
  if (offset > 0 &&
       chunk->lines[offset] == chunk->lines[offset - 1]) {
@@ -40,7 +47,7 @@ int disassembleInstruction(Chunk* chunk, int offset) {
     case OP_LOOKUP:
       return simpleInstruction("OP_LOOKUP", offset);
     case OP_ARRAY:
-      return constantInstruction("OP_ARRAY", chunk, offset);
+      return constantInstruction("OP_ARRAY",vm, chunk, offset);
     case OP_POP:
       return simpleInstruction("OP_POP", offset);
     case OP_ADD:
@@ -56,22 +63,28 @@ int disassembleInstruction(Chunk* chunk, int offset) {
     case OP_PRINT:
       return simpleInstruction("OP_PRINT", offset);
     case OP_GET_GLOBAL:
-      return keyInstruction("OP_GET_GLOBAL", chunk, offset);
+      return keyInstruction("OP_GET_GLOBAL", vm, chunk, offset);
     case OP_DEFINE_GLOBAL:
-      return keyInstruction("OP_DEFINE_GLOBAL", chunk,
+      return keyInstruction("OP_DEFINE_GLOBAL", vm, chunk,
                                  offset);
+    case OP_SET_GLOBAL:
+      return keyInstruction("OP_SET_GLOBAL", vm,chunk, offset);
     case OP_RETURN:
       return simpleInstruction("OP_RETURN", offset);
+      case OP_GET_LOCAL:
+      return byteInstruction("OP_GET_LOCAL", chunk, offset);
+    case OP_SET_LOCAL:
+      return byteInstruction("OP_SET_LOCAL", chunk, offset);
     default:
       printf("Unknown opcode %d\n", instruction);
       return offset + 1;
   }
 }
 
-void disassembleChunk(Chunk* chunk, const char* name) {
+void disassembleChunk(VM* vm,Chunk* chunk, const char* name) {
   printf("== %s ==\n", name);
 
   for (int offset = 0; offset < chunk->count;) {
-    offset = disassembleInstruction(chunk, offset);
+    offset = disassembleInstruction(vm,chunk, offset);
   }
 }

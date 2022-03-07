@@ -28,7 +28,7 @@ typedef enum {
   PREC_PRIMARY
 } Precedence;
 
-typedef void (*ParseFn)();
+typedef void (*ParseFn)(bool canAssign);
 
 typedef struct {
   ParseFn prefix;
@@ -36,7 +36,7 @@ typedef struct {
   Precedence precedence;
 } ParseRule;
 
-Array tempArray;
+Array* tempArray;
 
 Parser parser;
 
@@ -108,7 +108,6 @@ static bool check(TokenType type) {
 }
 
 static bool match(TokenType type) {
-  printf("checking %.*s\n", parser.current.length, parser.current.start);
   if (!check(type)) return false;
   advance();
   return true;
@@ -128,12 +127,13 @@ static void emitReturn() {
 }
 
 static uint8_t makeConstant() {
-  int constant = addArray(currentChunk(), tempArray).offset;
+  int constant = addArray(*tempArray).offset;
+  printf("made array with const %d\n", constant);
   if (constant > UINT8_MAX) {
     error("Too many constants in one chunk.");
     return 0;
   }
-  initEmptyArray(&tempArray, VAL_UNKNOWN);
+  tempArray = (Array*)initEmptyArray(VAL_UNKNOWN);
   return (uint8_t)constant;
 }
 
@@ -162,21 +162,14 @@ static uint32_t hashString(const char* key, int length) {
 
 static uint8_t parseVariable(const char* errorMessage) {
   consume(TOKEN_IDENTIFIER, errorMessage);
-  Key k;
-  po p = addGlobKey(currVM, k);
-  Key *key = (Key*)p.ptr;
-  key->value = malloc(sizeof(char) * parser.previous.length);
-  //printf("key pointer %p\n", key->value);
-  memcpy(key->value, parser.previous.start, parser.previous.length);
-  key->hash = hashString(parser.previous.start, parser.previous.length);
-  key->length = parser.previous.length;
   
-  //printf("hashed %s pointer is %p and got %lu\n", key->value, key->value, key->hash);
-  
-  tableSet(&currVM->strings, key, NULL);
-  Array* a;
-  //printf("the val is %s\n", found ? "found" : "not found");
-  //Key *testK = tableFindkey(&currVM.strings, k->value, k->length, k->hash);
+  uint32_t hash = hashString(parser.previous.start, parser.previous.length);
+  po p = tableFindKey(&currVM->globalInterned, parser.previous.start, parser.previous.length, hash);
+  if(p.ptr == NULL){
+    Key k;
+    p = addGlobKey(parser.previous.start,parser.previous.length);
+    tableSet(&currVM->globalInterned, p.ptr, NULL);
+  }
   return (uint8_t)p.offset;
 }
 
@@ -184,7 +177,7 @@ static void defineVariable(uint8_t global) {
   emitBytes(OP_DEFINE_GLOBAL, global);
 }
 
-static void binary() {
+static void binary(bool canAssign) {
   TokenType operatorType = parser.previous.type;
   ParseRule* rule = getRule(operatorType);
   parsePrecedence((Precedence)(rule->precedence + 1));
@@ -208,14 +201,13 @@ static void varDeclaration() {
   if (match(TOKEN_EQUAL)) {
     expression();
   } else {
-    Array a;
-    initEmptyArray(&a, VAL_NIL);
-    int constant = addArray(currentChunk(), a).offset;
+    Array a = *(Array*)initEmptyArray(VAL_NIL);
+    int constant = addArray(a).offset;
     if (constant > UINT8_MAX) {
       error("Too many constants in one chunk.");
       return;
     }
-    initEmptyArray(&a, VAL_NIL);
+    a = *(Array*)initEmptyArray(VAL_NIL);
     emitBytes(OP_ARRAY, constant);
   }
 
@@ -252,10 +244,8 @@ static void synchronize() {
 
 static void declaration() {
   if (match(TOKEN_VAR)) {
-    printf("definining var\n");
     varDeclaration();
   } else {
-    printf("checking statemetn\n");
     statement();
   }
 
@@ -270,33 +260,31 @@ static void statement() {
   }
 }
 
-static void grouping() {
+static void grouping(bool canAssign) {
   expression();
   consume(TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
 }
 
-static void number() {
+static void number(bool canAssign) {
   if(&tempArray == NULL){
-    initEmptyArray(&tempArray,VAL_NUMBER);
+    tempArray = (Array*)initEmptyArray(VAL_NUMBER);
   }
-  if(tempArray.type != VAL_NUMBER){
+  if(tempArray->type != VAL_NUMBER){
     errorAt(&parser.previous,"array is incorrect type for number");
     return;
   }
-  double value = strtod(parser.previous.start, NULL);
-  writeToArray(&tempArray,&value);
+  *(double*)createNewVal(tempArray) = strtod(parser.previous.start, NULL);
 }
 
-static void character(){
+static void character(bool canAssign){
   if(&tempArray == NULL){
-    initEmptyArray(&tempArray, VAL_CHAR);
+    tempArray = (Array*)initEmptyArray(VAL_CHAR);
   }
-  if(tempArray.type != VAL_CHAR){
+  if(tempArray->type != VAL_CHAR){
     errorAtCurrent("array is incorrect type for character");
     return;
   }
-
-  writeToArray(&tempArray,parser.previous.start);
+  *(char *)createNewVal(tempArray) = *parser.previous.start;
 }
 
 // static void addToArray(){
@@ -309,13 +297,13 @@ static void character(){
   
 // }
 
-static void chain(){
+static void chain(bool canAssign){
   parsePrecedence(PREC_ASSIGNMENT);
 }
 
-static void chainChar(){
-  character();
-  chain();
+static void chainChar(bool canAssign){
+  character(canAssign);
+  chain(canAssign);
 }
 
 /*
@@ -339,42 +327,42 @@ static bool isDigit(char c) {
 
 
 
-static void parseArray(){
-  
+static void parseArray(bool canAssign){
   const char *arr = parser.previous.start+1;
   char *valHolder;
+  
   if(isDigit(arr[0])){
-    initEmptyArray(&tempArray, VAL_NUMBER);
-    double val = strtod(arr,&valHolder);
-    writeToArray(&tempArray,&val);
-    while (valHolder[0] != ']'){
-      valHolder++;
-      val = strtod(valHolder, &valHolder);
-      writeToArray(&tempArray,&val);
-      
+    tempArray = (Array*)initEmptyArray(VAL_NUMBER);
+     double val = strtod(arr,&valHolder);
+     *(double *)createNewVal(tempArray) = val;
+     while (valHolder[0] != ']')
+     {
+       valHolder++;
+       val = strtod(valHolder, &valHolder);
+       *(double *)createNewVal(tempArray) = val;
     };
+    
   }else if(isAlpha(arr[0])){
-    initEmptyArray(&tempArray, VAL_CHAR);
+    tempArray = (Array*)initEmptyArray(VAL_CHAR);
     while (arr[0] != ']')
     {
-      writeToArray(&tempArray, arr);
+      *(char*)createNewVal(tempArray) = *arr;
       arr++;
     }
-    char c = '\0';
-    writeToArray(&tempArray, &c);
-    tempArray.hash = hashString(tempArray.as.character,tempArray.count);
+    *(char *)createNewVal(tempArray) = '\0';
+    tempArray->hash = hashString(tempArray->as.character,tempArray->count);
+    
   }
-  
   emitArray();
   //consume(TOKEN_RIGHT_SQUARE, "Improperly close array");
 }
 
-static void lookup(){
-  parseArray();
+static void lookup(bool canAssign){
+  parseArray(canAssign);
   emitByte(OP_LOOKUP);
 }
 
-static void unary() {
+static void unary(bool canAssign) {
   TokenType operatorType = parser.previous.type;
 
   // Compile the operand.
@@ -390,30 +378,29 @@ static void unary() {
   }
 }
 
-static void namedVariable(Token name) {
-  
-  Key *k = malloc(sizeof(Key));
-  
-  k->value = malloc(sizeof(char) * name.length);
-  memcpy(k->value, name.start, name.length);
+static void namedVariable(Token name, bool canAssign) {
 
-  k->hash = hashString(name.start, name.length);
-  k->length = name.length;
-  //printf("hashed %s and got %lu\n", k->value, k->hash);
-  
-  po p = tableFindKey(&currVM->strings, k->value, k->length, k->hash);
-  //printf("test k was %s\n", p.ptr == NULL? "not found": "found");
-  uint8_t arg = p.offset;
+  uint32_t hash = hashString(name.start, name.length);
+  po p = tableFindKey(&currVM->globalInterned, name.start, name.length, hash);
   if(p.ptr == NULL){
-    tableSet(&currVM->strings, k, NULL);
-    uint8_t arg = (uint8_t)addGlobKey(currVM, *k).offset;
+    Key k;
+    p = addGlobKey(parser.previous.start,parser.previous.length);
+    tableSet(&currVM->globalInterned, p.ptr, NULL);
   }
-  
-  emitBytes(OP_GET_GLOBAL, arg);
+  if (canAssign && match(TOKEN_EQUAL)) {
+    expression();
+    emitBytes(OP_SET_GLOBAL, p.offset);
+  } else {
+    emitBytes(OP_GET_GLOBAL, p.offset);
+  }
 }
 
-static void variable() {
-  namedVariable(parser.previous);
+static void reassignVar(){
+
+}
+
+static void variable(bool canAssign) {
+  namedVariable(parser.previous, canAssign);
 }
 
 ParseRule rules[] = {
@@ -472,11 +459,17 @@ static void parsePrecedence(Precedence precedence) {
     return;
   }
 
-  prefixRule();
+  bool canAssign = precedence <= PREC_ASSIGNMENT;
+  prefixRule(canAssign);
+
   while (precedence <= getRule(parser.current.type)->precedence) {
     advance();
     ParseFn infixRule = getRule(parser.previous.type)->infix;
-    infixRule();
+    infixRule(canAssign);
+  }
+
+  if (canAssign && match(TOKEN_EQUAL)) {
+    error("Invalid assignment target.");
   }
 }
 
@@ -484,7 +477,7 @@ static ParseRule* getRule(TokenType type) {
   return &rules[type];
 }
 
-bool compile(const char* source, Chunk* chunk, VM* vm) {
+  bool compile(const char* source, Chunk* chunk, VM* vm) {
   currVM = vm;
   initScanner(source);
   compilingChunk = chunk;
