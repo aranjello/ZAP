@@ -188,12 +188,17 @@ static void getArrayVal(){
 
 //0 NULL and false all evaluate to false all other values are true
 static bool isFalsey(Array array){
-  return array.type = VAL_BOOL;
+  if(array.type == VAL_NUMBER){
+    return array.as.number[0] == 0;
+  }
+  return false;
 }
 
 static InterpretResult run() {
 #define READ_BYTE() (*vm.ip++)
 #define READ_CONSTANT() &(vm.activeArrays.values[READ_BYTE()])
+#define READ_SHORT() \
+    (vm.ip += 2, (uint16_t)((vm.ip[-2] << 8) | vm.ip[-1]))
 #define READ_KEY() &(vm.globKeys.as.keys[READ_BYTE()]);
     for (;;)
     {
@@ -216,6 +221,21 @@ static InterpretResult run() {
       getArrayVal();
       break;
     }
+    case OP_JUMP_IF_FALSE: {
+        uint16_t offset = READ_SHORT();
+        if (isFalsey(*peek(0))) vm.ip += offset;
+        break;
+      }
+    case OP_JUMP: {
+      uint16_t offset = READ_SHORT();
+      vm.ip += offset;
+      break;
+    }
+    case OP_LOOP: {
+        uint16_t offset = READ_SHORT();
+        vm.ip -= offset;
+        break;
+      }
     case OP_ARRAY: {
           Array *constant = READ_CONSTANT();
           push(constant);
@@ -311,6 +331,7 @@ static InterpretResult run() {
 
 #undef READ_BYTE
 #undef READ_CONSTANT
+#undef READ_SHORT
 #undef READ_KEY
 }
 

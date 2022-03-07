@@ -128,7 +128,6 @@ static void emitReturn() {
 
 static uint8_t makeConstant() {
   int constant = addArray(*tempArray).offset;
-  printf("made array with const %d\n", constant);
   if (constant > UINT8_MAX) {
     error("Too many constants in one chunk.");
     return 0;
@@ -252,9 +251,70 @@ static void declaration() {
   if (parser.panicMode) synchronize();
 }
 
+static void patchJump(int offset) {
+  // -2 to adjust for the bytecode for the jump offset itself.
+  int jump = currentChunk()->count - offset - 2;
+
+  if (jump > UINT16_MAX) {
+    error("Too much code to jump over.");
+  }
+
+  currentChunk()->code[offset] = (jump >> 8) & 0xff;
+  currentChunk()->code[offset + 1] = jump & 0xff;
+}
+
+static int emitJump(uint8_t instruction) {
+  emitByte(instruction);
+  emitByte(0xff);
+  emitByte(0xff);
+  return currentChunk()->count - 2;
+}
+
+static void ifStatement() {
+
+  expression();
+  consume(TOKEN_SEMI, "Expect ';' after condition.");
+
+  int thenJump = emitJump(OP_JUMP_IF_FALSE);
+  emitByte(OP_POP);
+  statement();
+  int elseJump = emitJump(OP_JUMP);
+  patchJump(thenJump);
+  emitByte(OP_POP);
+  if (match(TOKEN_BAR)) statement();
+  patchJump(elseJump);
+}
+
+static void emitLoop(int loopStart) {
+  emitByte(OP_LOOP);
+
+  int offset = currentChunk()->count - loopStart + 2;
+  if (offset > UINT16_MAX) error("Loop body too large.");
+
+  emitByte((offset >> 8) & 0xff);
+  emitByte(offset & 0xff);
+}
+
+static void whileStatement() {
+  int loopStart = currentChunk()->count;
+  expression();
+  consume(TOKEN_SEMI, "Expect ')' after condition.");
+
+  int exitJump = emitJump(OP_JUMP_IF_FALSE);
+  emitByte(OP_POP);
+  statement();
+  emitLoop(loopStart);
+  patchJump(exitJump);
+  emitByte(OP_POP);
+}
+
 static void statement() {
   if (match(TOKEN_BANG)) {
     printStatement();
+  } else if (match(TOKEN_QUESTION)) {
+    ifStatement();
+  }else if (match(TOKEN_WHILE)) {
+    whileStatement();
   } else {
     expressionStatement();
   }
@@ -403,6 +463,26 @@ static void variable(bool canAssign) {
   namedVariable(parser.previous, canAssign);
 }
 
+static void or_(bool canAssign) {
+  int elseJump = emitJump(OP_JUMP_IF_FALSE);
+  int endJump = emitJump(OP_JUMP);
+
+  patchJump(elseJump);
+  emitByte(OP_POP);
+
+  parsePrecedence(PREC_OR);
+  patchJump(endJump);
+}
+
+static void and_(bool canAssign) {
+  int endJump = emitJump(OP_JUMP_IF_FALSE);
+
+  emitByte(OP_POP);
+  parsePrecedence(PREC_AND);
+
+  patchJump(endJump);
+}
+
 ParseRule rules[] = {
     [TOKEN_LEFT_PAREN] = {grouping, NULL, PREC_NONE},
     [TOKEN_RIGHT_PAREN] = {NULL, NULL, PREC_NONE},
@@ -431,7 +511,7 @@ ParseRule rules[] = {
     //[TOKEN_STRING]        = {NULL,     NULL,   PREC_NONE},
     [TOKEN_NUMBER] = {number, NULL, PREC_NONE},
     [TOKEN_CHAR] = {character, chainChar, PREC_NONE},
-    //[TOKEN_AND]           = {NULL,     NULL,   PREC_NONE},
+    [TOKEN_AND]  = {NULL,     and_,   PREC_NONE},
     [TOKEN_CLASS] = {NULL, NULL, PREC_NONE},
     //[TOKEN_ELSE]          = {NULL,     NULL,   PREC_NONE},
     [TOKEN_FALSE] = {NULL, NULL, PREC_NONE},
@@ -439,7 +519,7 @@ ParseRule rules[] = {
     [TOKEN_FUN] = {NULL, NULL, PREC_NONE},
     //[TOKEN_IF]            = {NULL,     NULL,   PREC_NONE},
     //   [TOKEN_NIL]           = {NULL,     NULL,   PREC_NONE},
-    //   [TOKEN_OR]            = {NULL,     NULL,   PREC_NONE},
+      [TOKEN_OR]            = {NULL,     or_,   PREC_NONE},
     //   [TOKEN_PRINT]         = {NULL,     NULL,   PREC_NONE},
     //   [TOKEN_RETURN]        = {NULL,     NULL,   PREC_NONE},
     //   [TOKEN_SUPER]         = {NULL,     NULL,   PREC_NONE},
