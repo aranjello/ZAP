@@ -58,7 +58,7 @@ void freeArray(Array* array){
                 FREE_ARRAY(char, array->as.character, array->capacity);
                 break;
         }
-        free(array);
+        //free(array);
 }
 
 /*
@@ -185,8 +185,13 @@ void printValue(Array value) {
     printf("[");
     while (value.hasSubArray)
     {
-        printValue(*value.as.array);
-        printf("]");
+        for (int i = 0; i < value.count; i++){
+            if(i>0)
+                printf(",");
+            printValue(value.as.array[i]);
+            
+        }
+        printf("]"); 
         return;
     }
     if(value.type == VAL_NIL)
@@ -220,7 +225,7 @@ void printValue(Array value) {
                     break;
                 }
             default:
-                printf("dont know");
+                //printf("dont know");
                 break;
             }
         
