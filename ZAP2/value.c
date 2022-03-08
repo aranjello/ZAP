@@ -5,7 +5,7 @@
 #include "value.h"
 
 
-void* initEmptyArray(ValueType t){
+Array* initEmptyArray(ValueType t){
     Array* array = malloc(sizeof(Array));
     array->capacity = 0;
     array->count = 0;
@@ -25,22 +25,20 @@ creates and intializes a new array
 @param val The number of values to be added to the array
 @param ... Pointers to the values to be put in the array
 */
-void *createArray(bool hasSub, ValueType t,int val,...){
+Array *createArray(bool hasSub, ValueType t,int val,...){
     va_list ptr;
     va_start(ptr, val);
     Array* array = malloc(sizeof(Array));
     *array = *(Array*)initEmptyArray(t);
     array->hasSubArray = hasSub;
-    #define SET_VAL(type) *(type*)newPtr = *(type*)ptr
     for (int i = 0; i < val; i++){
         va_arg(ptr, void *);
-        void *newPtr = createNewVal(array);
         switch(t){
             case VAL_NUMBER:
-                SET_VAL(double);
+                createNewVal(array,ptr);
                 break;
             case VAL_CHAR:
-                SET_VAL(char);
+                createNewVal(array,ptr);
                 break;
         }
     }
@@ -68,8 +66,7 @@ Writes a new value to an already existing array
 @param array The array to be added to
 @param val The value to be added
 */
-void * createNewVal(Array* array){
-    printf("type is %s\n", array->type == VAL_UNKNOWN ? "good" : "bad");
+void * createNewVal(Array* array, void * val){
     if (array->capacity < array->count + 1) {
         int oldCapacity = array->capacity;
         array->capacity = GROW_CAPACITY(oldCapacity);
@@ -100,16 +97,20 @@ void * createNewVal(Array* array){
     switch (array->type)
     {
         case VAL_KEY :
+            array->as.keys[array->count - 1] = *(Key *)val;
             array->as.keys[array->count - 1].loc = array->count - 1;
             return &array->as.keys[array->count - 1];
             break;
         case VAL_NUMBER : 
+            array->as.number[array->count - 1] = *(double *)val;
             return &array->as.number[array->count - 1];
             break;
         case VAL_CHAR :
+            array->as.character[array->count - 1] = *(char *)val;
             return &array->as.character[array->count - 1];
             break;
         case VAL_UNKNOWN :
+            array->as.array[array->count - 1] = *(Array*)val;
             return &array->as.array[array->count - 1];
             break;
         default:
@@ -132,7 +133,7 @@ Initializes the array array of a chunk
 void initValueArray(ArrayArray* array) {
     array->capacity = 0;
     array->count = 0;
-    array->values = malloc(sizeof(Array));
+    array->values = NULL;
 }
 
 /*
@@ -140,7 +141,7 @@ Adds a new array to the ArrayArray for a chunk\
 @param array The array to add to
 @param value The array to add
 */
-void* createValueArray(ArrayArray* array) {
+void* createValueArray(ArrayArray* array, Array * arr) {
     if (array->capacity < array->count + 1) {
         int oldCapacity = array->capacity;
         array->capacity = GROW_CAPACITY(oldCapacity);
@@ -148,6 +149,7 @@ void* createValueArray(ArrayArray* array) {
                                     oldCapacity, array->capacity);
     }
     array->count++;
+    array->values[array->count - 1] = *arr;
     return &array->values[array->count-1];
 }
 
@@ -161,7 +163,6 @@ void freeValueArray(ArrayArray* array) {
         {
             case VAL_KEY:
                 FREE_ARRAY(Key, array->values[i].as.keys, array->values[i].capacity);
-                
                 break;
             case VAL_NUMBER:
                 FREE_ARRAY(double, array->values[i].as.number, array->values[i].capacity);
@@ -184,9 +185,10 @@ void printValue(Array value) {
     printf("[");
     while (value.hasSubArray)
     {
-        value = *value.as.array;
+        printValue(*value.as.array);
+        printf("]");
+        return;
     }
-    printf("printing is %s\n", value.type == NULL);
     if(value.type == VAL_NIL)
         printf("VAL NIL");
     if(value.type == VAL_CHAR)

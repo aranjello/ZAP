@@ -48,12 +48,13 @@ typedef struct ArrayArray{
   Array* values;
 } ArrayArray;
 
-void * initEmptyArray(ValueType t);
-void * createArray(bool hasSub, ValueType t, int val,...);
-void * createNewVal(Array* array);
+Array * initEmptyArray(ValueType t);
+Array * createArray(bool hasSub, ValueType t, int val,...);
+void * createNewVal(Array* array,void * val);
 void trashArray(Array *array);
 void initValueArray(ArrayArray* array);
-void * createValueArray(ArrayArray* array);
+void * createValueArray(ArrayArray* array , Array * arr);
+void freeArray(Array *array);
 void freeValueArray(ArrayArray* array);
 void printValue(Array value);
 

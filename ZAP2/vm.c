@@ -71,8 +71,7 @@ static po allocateNewKey(Array* keyArray,const char * value, int length){
   memcpy(key.value, value, length);
   key.hash = hashString(value,length);
   key.length = length;
-  p.ptr = createNewVal(keyArray);
-  *(Key*)p.ptr = key;
+  p.ptr = createNewVal(keyArray,&key);
   p.offset = keyArray->count-1;
   return p;
 }
@@ -117,8 +116,7 @@ bool writeLocalVar(localSpace *local, Key* k, Array* a){
 
 po addArray(Array array){
   po p;
-  p.ptr = createValueArray(&vm.activeArrays);
-  *(Array*)p.ptr = array;
+  p.ptr = createValueArray(&vm.activeArrays,&array);
   p.offset = vm.activeArrays.count - 1;
   return p;
 }
@@ -150,7 +148,8 @@ static bool binaryOp(char op){
           default:
               break;
         }
-        *(double*)createNewVal(p.ptr) = value;
+
+        createNewVal(p.ptr, &value);
         
     }
     trashArray(a);
@@ -170,10 +169,10 @@ static void getArrayVal(){
   for (int i = 0; i < indicies->count; i++){
     switch (val->type){
       case VAL_CHAR:
-        *(char*)createNewVal(p.ptr) = (val->as.character[(int)indicies->as.number[i]]);
+        createNewVal(p.ptr,&val->as.character[(int)indicies->as.number[i]]);
         break;
       case VAL_NUMBER:
-        *(double*)createNewVal(p.ptr) = (val->as.number[(int)indicies->as.number[i]]);
+        createNewVal(p.ptr,&val->as.number[(int)indicies->as.number[i]]);
         break;
     }
     
