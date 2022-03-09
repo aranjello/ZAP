@@ -4,6 +4,13 @@
 #include "common.h"
 #include "codeChunk.h"
 
+typedef struct Function{
+  int arity;
+  Chunk chunk;
+  int nameLength;
+  char* name;
+} Function;
+
 typedef struct Key{
     char* value;
     int length;
@@ -11,12 +18,9 @@ typedef struct Key{
     uint32_t hash;
 } Key;
 
-typedef struct ObjFunction{
-  int arity;
-  Chunk chunk;
-  int nameLength;
-  char* name;
-} ObjFunction;
+typedef struct Evaluator{
+  void *evaluator;
+} Evaluator;
 
 typedef struct po{
   void *ptr;
@@ -24,18 +28,29 @@ typedef struct po{
 } po;
 
 typedef enum {
-  VAL_BOOL,
-  VAL_NUMBER,
+  //basic data types
+  VAL_INT,
+  VAL_DOUBLE,
+  VAL_FLOAT,
   VAL_CHAR,
+  VAL_BOOL,
+  //function array
   VAL_FUNC,
-  //NIL is for empty array
-  VAL_NIL, 
+  //key array
+  VAL_KEY,
+  //evaluation array
+  VAL_EVAL,
+  //chunk array
+  VAL_CHUNK,
+  //recursive ArrayArray
+  VAL_ARRAY,
+  //NULL is for null array
+  VAL_NULL, 
   //UNKNOWN is for array being created before a type is defined
   VAL_UNKNOWN,
-  VAL_EVAL,
-  VAL_KEY,
-  VAL_CHUNK,
-  VAL_ARRAY,
+  
+  
+  
 } ValueType;
 
 typedef struct Array{
@@ -46,11 +61,16 @@ typedef struct Array{
   bool hasSubArray;
   bool garbage;
   union{
-    struct Array* arrays;
-    char *characters;
-    double *numbers;
-    Key *keys;
-    ObjFunction *funcs;
+    int           *ints;
+    double        *doubles;
+    float         *floats;
+    char          *chars;
+    bool          *bools;
+    Function      *funcs;
+    Key           *keys;
+    Evaluator     *evals;
+    Chunk         *chunks;
+    struct Array  *arrays;
   } as;
 } Array;
 

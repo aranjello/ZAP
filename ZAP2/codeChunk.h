@@ -2,38 +2,50 @@
 #define ZAP_chunk_h
 
 #include "common.h"
+#include "table.h"
 
 //A code chunk is a self contained set of instuctions as well as the lines associated with the creation of those instructions.
-//Code chunks do not hold their own data and instead save offsets into a global data array in the VM
+//Code chunks hold all of their own data interned holds the interned strings, Keys holds the keys for the vars table, data holds all data for the chunk(constant
+//and dynamic)
 
 //A list of all available bytecode operations
 typedef enum
 {
+    //Array controls
     OP_ARRAY,
-    OP_LOOKUP,
-    OP_PRINT,
     OP_POP,
+    //Moandic math ops
+    OP_PRE_ADD,
+    OP_NEGATE,
+    //dyadic math ops
+    OP_ADD,
+    OP_SUBTRACT,
+    OP_MULTIPLY,
+    OP_DIVIDE,
+    //loop ops
+    OP_LOOP,
+    OP_JUMP_IF_FALSE,
+    OP_JUMP,
+    //monadic function ops
+    OP_PRINT,
+    OP_GET_DIMS,
+    //dyadic function ops
+    OP_LOOKUP,
+    //monadic comparison ops
+    OP_NOT,
+    //dyadic comparison ops
+    OP_COMPARE,
+    OP_ALL,
+    OP_EQUAL,
+    OP_GREATER,
+    OP_LESS,
+    //var ops
     OP_DEFINE_GLOBAL,
     OP_SET_LOCAL,
     OP_GET_LOCAL,
     OP_SET_GLOBAL,
     OP_GET_GLOBAL,
-    OP_GET_DIMS,
-    OP_COMPARE,
-    OP_ALL,
-    OP_LOOP,
-    OP_JUMP_IF_FALSE,
-    OP_JUMP,
-    OP_EQUAL,
-    OP_GREATER,
-    OP_LESS,
-    OP_PRE_ADD,
-    OP_ADD,
-    OP_SUBTRACT,
-    OP_MULTIPLY,
-    OP_DIVIDE,
-    OP_NOT,
-    OP_NEGATE,
+    //return op
     OP_RETURN,
 } OpCode;
 
@@ -43,6 +55,10 @@ typedef struct Chunk{
     int capacity;
     uint8_t* code;
     int* lines;
+    Table interned;
+    Array Keys;
+    Table vars;
+    ArrayArray data;
 } Chunk;
 
 void initChunk(Chunk* chunk);
