@@ -2,6 +2,7 @@
 #define ZAP_value_h
 
 #include "common.h"
+#include "codeChunk.h"
 
 typedef struct Key{
     char* value;
@@ -9,6 +10,13 @@ typedef struct Key{
     int loc;
     uint32_t hash;
 } Key;
+
+typedef struct ObjFunction{
+  int arity;
+  Chunk chunk;
+  int nameLength;
+  char* name;
+} ObjFunction;
 
 typedef struct po{
   void *ptr;
@@ -19,12 +27,15 @@ typedef enum {
   VAL_BOOL,
   VAL_NUMBER,
   VAL_CHAR,
+  VAL_FUNC,
   //NIL is for empty array
   VAL_NIL, 
   //UNKNOWN is for array being created before a type is defined
   VAL_UNKNOWN,
   VAL_EVAL,
   VAL_KEY,
+  VAL_CHUNK,
+  VAL_ARRAY,
 } ValueType;
 
 typedef struct Array{
@@ -35,10 +46,11 @@ typedef struct Array{
   bool hasSubArray;
   bool garbage;
   union{
-    struct Array* array;
-    char *character;
-    double *number;
+    struct Array* arrays;
+    char *characters;
+    double *numbers;
     Key *keys;
+    ObjFunction *funcs;
   } as;
 } Array;
 
@@ -57,5 +69,7 @@ void * createValueArray(ArrayArray* array , Array * arr);
 void freeArray(Array *array);
 void freeValueArray(ArrayArray* array);
 void printValue(Array value);
+
+Array *newFunction();
 
 #endif

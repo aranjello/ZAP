@@ -2,8 +2,11 @@
 #define ZAP_chunk_h
 
 #include "common.h"
-#include "value.h"
 
+//A code chunk is a self contained set of instuctions as well as the lines associated with the creation of those instructions.
+//Code chunks do not hold their own data and instead save offsets into a global data array in the VM
+
+//A list of all available bytecode operations
 typedef enum
 {
     OP_ARRAY,
@@ -34,14 +37,13 @@ typedef enum
     OP_RETURN,
 } OpCode;
 
+//A struct that defines a single code chunk
 typedef struct Chunk{
     int count;
     int capacity;
     uint8_t* code;
     int* lines;
 } Chunk;
-
-
 
 void initChunk(Chunk* chunk);
 void freeChunk(Chunk* chunk);

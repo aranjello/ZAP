@@ -6,7 +6,9 @@
 #include "codeChunk.h"
 #include "debug.h"
 #include "vm.h"
-
+/*
+Starts a read->evaluate->print->loop cycle that reads and compiles lines of ZAP code and executes them
+*/
 static void repl() {
   char line[1024];
   for (;;) {
@@ -21,6 +23,10 @@ static void repl() {
   }
 }
 
+/*
+Reads a .ZAP code file and returns a pointer to the data inside
+@param path The path to the .ZAP code file
+*/
 static char* readFile(const char* path) {
   FILE* file = fopen(path, "rb");
      if (file == NULL) {
@@ -51,6 +57,10 @@ static char* readFile(const char* path) {
   return buffer;
 }
 
+/*
+Reads a .ZAP code file and compiles and executes the code inside
+@param path The path to the .ZAP code file
+*/
 static void runFile(const char* path) {
   char* source = readFile(path);
   InterpretResult result = interpret(source);
@@ -60,6 +70,10 @@ static void runFile(const char* path) {
   if (result == INTERPRET_RUNTIME_ERROR) exit(70);
 }
 
+/*
+Starts the program, can take optional arguments to specify a file to read.
+If no file is provided a REPL is started
+*/
 int main(int argc, const char* argv[]) {
     initVM();
     if (argc == 1) {

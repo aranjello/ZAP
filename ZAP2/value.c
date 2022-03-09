@@ -225,6 +225,9 @@ void printValue(Array value) {
                     }
                     break;
                 }
+            case VAL_FUNC:{
+                printf("<fn %s>", value.as.funcs->name);
+            }
             default:
                 printf("dont know");
                 break;
@@ -232,4 +235,13 @@ void printValue(Array value) {
         
     }
     printf("]");
+}
+
+Array* newFunction(){
+    ObjFunction f;
+    f.arity = 0;
+    f.name = NULL;
+    f.nameLength = 0;
+    initChunk(&f.chunk);
+    return createArray(false, VAL_FUNC, 1, f);
 }

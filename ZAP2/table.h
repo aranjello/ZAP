@@ -5,11 +5,13 @@
 #include "codeChunk.h"
 #include "common.h"
 
+//A key value pair that will be stored in a table
 typedef struct Entry{
   Key* key;
   Array* value;
 } Entry;
 
+//A table to store entries
 typedef struct Table{
   int count;
   int capacity;

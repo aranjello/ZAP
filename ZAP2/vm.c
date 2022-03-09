@@ -139,6 +139,8 @@ static void setTypes(Array * a){
 }
 
 static bool all(Array * a){
+  if(a->type == VAL_NIL)
+    return false;
   Array *res = addArray(*initEmptyArray(VAL_NUMBER)).ptr;
   if(a->hasSubArray){
     for (int i = 0; i < a->count; i++){
@@ -154,19 +156,33 @@ static bool all(Array * a){
   return true;
 }
 
+static Array* getArraySize(Array * a){
+  Array c = *(Array*)initEmptyArray(VAL_NUMBER);
+  po p = addArray(c);
+  Array *temp = a;
+  while(temp->hasSubArray){
+    double b = (double)temp->count;
+    createNewVal(p.ptr, &b);
+    temp = temp->as.array;
+  }
+  double b = (double)temp->count;
+  createNewVal(p.ptr, &b);
+  return p.ptr;
+}
+
 static Array* compareArrays(Array* a, Array *b){
   Array *res;
   Array *tempa = a;
   Array *tempb = b;
-  if(tempa->hasSubArray){
-    if(tempb->hasSubArray){
+  if(tempa->hasSubArray && tempb->hasSubArray){
       res = addArray(*initEmptyArray(VAL_UNKNOWN)).ptr;
       res->hasSubArray = true;
       for (int i = 0; i < a->count; i++){
-        Array * temp = createNewVal(res, compareArrays(&tempa->as.array[i], &tempb->as.array[i]));
-        
+        createNewVal(res, compareArrays(&tempa->as.array[i], &tempb->as.array[i]));
       }
-    }
+      res->type = VAL_NUMBER;
+  }else if(tempa->hasSubArray || tempb->hasSubArray){
+    res = addArray(*initEmptyArray(VAL_NIL)).ptr;
   }else{
     res = addArray(*initEmptyArray(VAL_NUMBER)).ptr;
     for (int i = 0; i < a->count; i++){
@@ -174,16 +190,17 @@ static Array* compareArrays(Array* a, Array *b){
       createNewVal(res,&result);
     }
   }
-  res->type = VAL_NUMBER;
+  //res->type = VAL_NUMBER;
   return res;
 }
-  
+
+
 static bool binaryOp(char op){
     Array *b = pop();
     Array *a = pop();
     Array c = *(Array*)initEmptyArray(VAL_NUMBER);
 
-    if(a->count != b->count){
+    if(!all(compareArrays(getArraySize(a),getArraySize(b)))){
       runtimeError("array size mismatch for operation %c\n", op);
       return false;
     }
@@ -210,20 +227,6 @@ static bool binaryOp(char op){
     return true;
 }
 
-static Array* getArraySize(Array * a){
-  Array c = *(Array*)initEmptyArray(VAL_NUMBER);
-  po p = addArray(c);
-  Array *temp = a;
-  while(temp->hasSubArray){
-    double b = (double)temp->count;
-    createNewVal(p.ptr, &b);
-    temp = temp->as.array;
-  }
-  double b = (double)temp->count;
-  createNewVal(p.ptr, &b);
-  trashArray(a);
-  return p.ptr;
-}
 
 static void getArrayVal(){
   Array *indicies = pop();
@@ -299,9 +302,15 @@ static InterpretResult run() {
       push(res);
       break;
     }
-    case OP_COMPARE:
-      push(compareArrays(pop(),pop()));
+    case OP_COMPARE:{
+      Array *res = compareArrays(pop(), pop());
+      if (res->type == VAL_NIL){
+        runtimeError("array size mismatch for compare operation\n");
+        return INTERPRET_RUNTIME_ERROR;
+      }
+      push(res);
       break;
+    }
     case OP_JUMP_IF_FALSE: {
         uint16_t offset = READ_SHORT();
         if (isFalsey(*peek(0))) vm.ip += offset;
