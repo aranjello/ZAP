@@ -225,7 +225,7 @@ void printValue(Array value) {
                     break;
                 }
             default:
-                //printf("dont know");
+                printf("dont know");
                 break;
             }
         

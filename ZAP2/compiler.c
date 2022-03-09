@@ -44,6 +44,8 @@ typedef struct tempArray{
 
 tempArray ta;
 
+Array* currArray;
+
 Parser parser;
 
 int currDepth = 0;
@@ -156,7 +158,7 @@ static void emitReturn() {
 }
 
 static uint8_t makeConstant() {
-  int constant = addArray(*ta.values[0]).offset;
+  int constant = addArray(*currArray).offset;
   if (constant > UINT8_MAX) {
     error("Too many constants in one chunk.");
     return 0;
@@ -403,26 +405,31 @@ static void grouping(bool canAssign) {
 }
 
 static void number(bool canAssign) {
-  if(&ta == NULL){
-    ta.values[ta.count-1] = (Array*)initEmptyArray(VAL_NUMBER);
+  printf("curr array count %d %d\n",currArray->count, currArray->type);
+  if(currArray->count == 0){
+    currArray->type = VAL_NUMBER;
   }
-  if(ta.values[ta.count-1]->type != VAL_NUMBER){
+
+  if(currArray->type != VAL_NUMBER){
     errorAt(&parser.previous,"array is incorrect type for number");
     return;
   }
   double val = strtod(parser.previous.start, NULL);
-  createNewVal(ta.values[ta.count-1],&val);
+  createNewVal(currArray,&val);
 }
 
 static void character(bool canAssign){
-  if(&ta == NULL){
-    ta.values[ta.count-1] = (Array*)initEmptyArray(VAL_CHAR);
+  if(ta.count == 0){
+    currArray = (Array*)initEmptyArray(VAL_CHAR);
   }
-  if(ta.values[ta.count-1]->type != VAL_CHAR){
+  if(currArray->type == VAL_UNKNOWN){
+    currArray->type = VAL_CHAR;
+  }
+  if(currArray->type != VAL_CHAR){
     errorAtCurrent("array is incorrect type for character");
     return;
   }
-  createNewVal(ta.values[ta.count-1] , (char *)parser.previous.start);
+  createNewVal(currArray , (char *)parser.previous.start);
 }
 
 // static void addToArray(){
@@ -470,8 +477,9 @@ static void parseArray(bool canAssign){
     }else{
       printf("attempt ta.count = %d cuurdepth = %d\n",ta.count,currDepth);
       freeArray(ta.values[ta.count-1]);
-      ta.values[ta.count - currDepth - 2]->count--;
-      ta.values[ta.count-1] = createNewVal(ta.values[ta.count - currDepth - 2], initEmptyArray(VAL_NUMBER));
+      ta.values[ta.count - currDepth-1]->count--;
+      ta.values[ta.count-1] = createNewVal(ta.values[ta.count - currDepth - 1], initEmptyArray(VAL_NUMBER));
+      //printf("t atype is %d\n", (*(Array*)createNewVal(ta.values[ta.count - currDepth - 1], initEmptyArray(VAL_NUMBER))).type);
     }
     printf("done ta val is %s\n",ta.values[ta.count-1] == NULL?"bad":"good");
     double val = strtod(arr, &valHolder);
@@ -576,22 +584,52 @@ static void and_(bool canAssign) {
 static void chain(bool canAssign);
 
 static void createMultiDim(bool canAssign){
-  totalDepth++;
-  printf("creating multi %d\n",ta.count-currDepth-1);
-  createInTemp(&ta,createNewVal(ta.values[ta.count-currDepth-1],initEmptyArray(VAL_UNKNOWN)));
-  ta.values[ta.count - currDepth - 2]->hasSubArray = true;
-  printf("curr is %d adding attay is %d\n", ta.count - 1, ta.count - currDepth - 2);
-  printf("ta ptr: %p, val Array ptr: %p\n",&ta.values[ta.count-currDepth-1][currDepth],&ta.values[ta.count-currDepth-2]->as.array[currDepth]);
-  parsePrecedence(PREC_ARRAY);
-  if(match(TOKEN_COMMA))
-    chain(canAssign);
-  printf("ta ptr: %p, val Array ptr: %p\n",&ta.values[ta.count-currDepth-1][currDepth],&ta.values[ta.count-currDepth-2]->as.array[currDepth]);
-  ta.values[ta.count-currDepth - 2]->type = ta.values[ta.count-currDepth - 1]->type;
-  match(TOKEN_RIGHT_SQUARE);
-  //currDepth--;
-  totalDepth--;
-  if(totalDepth == 0)
+  
+  if(ta.count > 0 ){
+    ta.values[ta.count - 1]->hasSubArray = true;
+    createInTemp(&ta,createNewVal(ta.values[ta.count - 1],  initEmptyArray(VAL_UNKNOWN)));
+    currArray = ta.values[ta.count - 1];
+  }else{
+    createInTemp(&ta, initEmptyArray(VAL_UNKNOWN));
+    currArray = ta.values[ta.count - 1];
+  }
+  parsePrecedence(PREC_ASSIGNMENT);
+  // totalDepth++;
+  // // printf("creating multi %d\n",ta.count-currDepth-1);
+  // // createInTemp(&ta,createNewVal(ta.values[ta.count-currDepth-1],initEmptyArray(VAL_UNKNOWN)));
+  // // ta.values[ta.count - currDepth - 2]->hasSubArray = true;
+  // // printf("curr is %d adding attay is %d\n", ta.count - 1, ta.count - currDepth - 2);
+  // // printf("ta ptr: %p, val Array ptr: %p\n",ta.values[ta.count-1],&ta.values[ta.count-currDepth-2]->as.array[currDepth]);
+  
+  // // printf("ta ptr: %p, val Array ptr: %p\n",ta.values[ta.count-1],&ta.values[ta.count-currDepth-2]->as.array[currDepth]);
+  // int d = 0;
+  // do{
+  //   d++;
+  //   printf("ta count %d and d %d and total depth %d\n", ta.count,d,totalDepth);
+  //   createInTemp(&ta,createNewVal(ta.values[ta.count-d],initEmptyArray(VAL_UNKNOWN)));
+  //   printf("ta count %d and d %d\n", ta.count,d);
+  //   ta.values[ta.count - d - 1]->hasSubArray = true;
+  //   currDepth = d;
+  //   parsePrecedence(PREC_ARRAY);
+    
+  // } while (match(TOKEN_COMMA));
+  // ta.values[ta.count- d - 1]->type = ta.values[ta.count- 1]->type;
+  // consume(TOKEN_RIGHT_SQUARE, "Improperly closed array");
+  // //currDepth--;
+  // totalDepth--;
+  // if(totalDepth == 0)
+  //   emitArray();
+}
+
+static void closeArray(bool canAssign){
+  printf("ta count is %d\n", ta.count);
+  printValue(*currArray);
+  if(ta.count >= 2)
+     currArray = ta.values[ta.count - 2];
+  ta.count--;
+  if(ta.count == 0){
     emitArray();
+  }
 }
 
 static bool contains(Array* parent, Array * child){
@@ -605,14 +643,15 @@ static bool contains(Array* parent, Array * child){
 }
 
 static void chain(bool canAssign){
-  while (!contains(ta.values[ta.count-currDepth-1],ta.values[ta.count-1]))
-  {
-    currDepth++;
-  }
-  printf("array %d thinks that array %d is its parent\n", ta.count - 1, ta.count - currDepth - 1);
-  printf("++++++++++++++chained curr depth %d",currDepth);
-  createMultiDim(canAssign);
-  currDepth = 0;
+  // while (!contains(ta.values[ta.count-currDepth-1],ta.values[ta.count-1]))
+  // {
+  //   currDepth++;
+  // }
+  // printf("array %d thinks that array %d is its parent\n", ta.count - 1, ta.count - currDepth - 1);
+  // printf("++++++++++++++chained curr depth %d",currDepth);
+  // createMultiDim(canAssign);
+  // currDepth = 0;
+  parsePrecedence(PREC_ASSIGNMENT);
 }
 
 static void chainChar(bool canAssign){
@@ -627,7 +666,7 @@ ParseRule rules[] = {
     [TOKEN_RIGHT_BRACE] = {NULL, NULL, PREC_NONE},
     [TOKEN_ARRAY] = {parseArray, lookup, PREC_ARRAY},
     [TOKEN_LEFT_SQUARE] = {createMultiDim, NULL, PREC_NONE},
-    [TOKEN_RIGHT_SQUARE] = {NULL, NULL, PREC_NONE},
+    [TOKEN_RIGHT_SQUARE] = {NULL, closeArray, PREC_ASSIGNMENT},
     [TOKEN_RIGHT_PAREN] = {NULL, NULL, PREC_NONE},
     [TOKEN_COMMA] = {NULL, chain, PREC_ASSIGNMENT},
     [TOKEN_DOT] = {NULL, NULL, PREC_NONE},
@@ -700,8 +739,7 @@ bool compile(const char* source, Chunk* chunk, VM* vm) {
   compilingChunk = chunk;
   parser.hadError = false;
   parser.panicMode = false;
-  initTempArray(&ta);
-  createInTemp(&ta, initEmptyArray(VAL_UNKNOWN));
+  initTempArray(&ta);;
   advance();
   while (!match(TOKEN_EOF)) {
     declaration();
