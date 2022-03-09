@@ -185,6 +185,7 @@ void printValue(Array value) {
     printf("[");
     while (value.hasSubArray)
     {
+        
         for (int i = 0; i < value.count; i++){
             if(i>0)
                 printf(",");

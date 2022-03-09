@@ -276,6 +276,7 @@ Token scanToken() {
         case ',': return makeToken(TOKEN_COMMA);
         case '.': return makeToken(TOKEN_DOT);
         case '-': return makeToken(TOKEN_MINUS);
+        case '#': return makeToken(TOKEN_POUND);
         case '+': return makeToken(TOKEN_PLUS);
         case '/': return makeToken(TOKEN_FORWARD_SLASH);
         case '*': return makeToken(TOKEN_STAR);

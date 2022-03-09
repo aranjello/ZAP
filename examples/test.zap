@@ -1,7 +1,13 @@
-var apple = [5]
+var a = [5,6,6,7,8,9,4,456,345,0]
 
-?!apple[0];
+!a
 
-!apple
+a = a + a
+a = a + a
+a = a + a
 
-apple = apple - [1];
+!a
+
+!&a
+
+!#a

@@ -125,6 +125,58 @@ po addArray(Array array){
 static Array* peek(int distance) {
   return vm.stackTop[-1 - distance];
 }
+
+static void setTypes(Array * a){
+  for (int i = 0; i < a->count; i++){
+    if(a->hasSubArray)
+      setTypes(&a->as.array[i]);
+  }
+  Array *temp = a;
+  while(temp->hasSubArray){
+    temp = temp->as.array;
+  }
+  a->type = temp->type;
+}
+
+static bool all(Array * a){
+  Array *res = addArray(*initEmptyArray(VAL_NUMBER)).ptr;
+  if(a->hasSubArray){
+    for (int i = 0; i < a->count; i++){
+      if(!all(&a->as.array[i]))
+        return false;
+    }
+  }else{
+    for (int i = 0; i < a->count; i++){
+      if(a->as.number[i] == 0)
+        return false;
+    }
+  }
+  return true;
+}
+
+static Array* compareArrays(Array* a, Array *b){
+  Array *res;
+  Array *tempa = a;
+  Array *tempb = b;
+  if(tempa->hasSubArray){
+    if(tempb->hasSubArray){
+      res = addArray(*initEmptyArray(VAL_UNKNOWN)).ptr;
+      res->hasSubArray = true;
+      for (int i = 0; i < a->count; i++){
+        Array * temp = createNewVal(res, compareArrays(&tempa->as.array[i], &tempb->as.array[i]));
+        
+      }
+    }
+  }else{
+    res = addArray(*initEmptyArray(VAL_NUMBER)).ptr;
+    for (int i = 0; i < a->count; i++){
+      double result = (double)(a->as.number[i] == b->as.number[i]);
+      createNewVal(res,&result);
+    }
+  }
+  res->type = VAL_NUMBER;
+  return res;
+}
   
 static bool binaryOp(char op){
     Array *b = pop();
@@ -156,6 +208,21 @@ static bool binaryOp(char op){
     trashArray(b);
     push(p.ptr);
     return true;
+}
+
+static Array* getArraySize(Array * a){
+  Array c = *(Array*)initEmptyArray(VAL_NUMBER);
+  po p = addArray(c);
+  Array *temp = a;
+  while(temp->hasSubArray){
+    double b = (double)temp->count;
+    createNewVal(p.ptr, &b);
+    temp = temp->as.array;
+  }
+  double b = (double)temp->count;
+  createNewVal(p.ptr, &b);
+  trashArray(a);
+  return p.ptr;
 }
 
 static void getArrayVal(){
@@ -219,6 +286,22 @@ static InterpretResult run() {
       getArrayVal();
       break;
     }
+    case OP_GET_DIMS:
+      push(getArraySize(pop()));
+      break;
+    case OP_ALL:{
+      Array *res = initEmptyArray(VAL_NUMBER);
+      double num = 0;
+      if(all(pop())){
+        num = 1;
+      }
+      createNewVal(res, &num);
+      push(res);
+      break;
+    }
+    case OP_COMPARE:
+      push(compareArrays(pop(),pop()));
+      break;
     case OP_JUMP_IF_FALSE: {
         uint16_t offset = READ_SHORT();
         if (isFalsey(*peek(0))) vm.ip += offset;
@@ -351,6 +434,6 @@ InterpretResult interpret(const char* source) {
   vm.ip = vm.chunk->code;
 
   InterpretResult result = run();
-  // /freeChunk(&chunk);
+  freeChunk(&chunk);
   return result;
 }

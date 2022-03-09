@@ -77,6 +77,12 @@ int disassembleInstruction(VM* vm,Chunk* chunk, int offset) {
       return simpleInstruction("OP_NEGATE", offset);
     case OP_PRINT:
       return simpleInstruction("OP_PRINT", offset);
+    case OP_GET_DIMS:
+      return simpleInstruction("OP_GET_DIMS", offset);
+      case OP_COMPARE:
+      return simpleInstruction("OP_COMPARE", offset);
+      case OP_ALL:
+      return simpleInstruction("OP_ALL", offset);
     case OP_GET_GLOBAL:
       return keyInstruction("OP_GET_GLOBAL", vm, chunk, offset);
     case OP_DEFINE_GLOBAL:

@@ -218,7 +218,9 @@ static void binary(bool canAssign) {
     case TOKEN_PLUS:          emitByte(OP_ADD); break;
     case TOKEN_MINUS:         emitByte(OP_SUBTRACT); break;
     case TOKEN_STAR:          emitByte(OP_MULTIPLY); break;
-    case TOKEN_FORWARD_SLASH:         emitByte(OP_DIVIDE); break;
+    case TOKEN_FORWARD_SLASH: emitByte(OP_DIVIDE); break;
+    case TOKEN_EQUAL_EQUAL: emitByte(OP_COMPARE); break;
+
     default: return; // Unreachable.
   }
 }
@@ -405,7 +407,6 @@ static void grouping(bool canAssign) {
 }
 
 static void number(bool canAssign) {
-  printf("curr array count %d %d\n",currArray->count, currArray->type);
   if(currArray->count == 0){
     currArray->type = VAL_NUMBER;
   }
@@ -532,6 +533,8 @@ static void unary(bool canAssign) {
       emitByte(OP_PRE_ADD);
       break;
     case TOKEN_MINUS: emitByte(OP_NEGATE); break;
+    case TOKEN_POUND: emitByte(OP_GET_DIMS); break;
+    case TOKEN_AMP: emitByte(OP_ALL); break;
     default: return; // Unreachable.
   }
 }
@@ -594,40 +597,26 @@ static void createMultiDim(bool canAssign){
     currArray = ta.values[ta.count - 1];
   }
   parsePrecedence(PREC_ASSIGNMENT);
-  // totalDepth++;
-  // // printf("creating multi %d\n",ta.count-currDepth-1);
-  // // createInTemp(&ta,createNewVal(ta.values[ta.count-currDepth-1],initEmptyArray(VAL_UNKNOWN)));
-  // // ta.values[ta.count - currDepth - 2]->hasSubArray = true;
-  // // printf("curr is %d adding attay is %d\n", ta.count - 1, ta.count - currDepth - 2);
-  // // printf("ta ptr: %p, val Array ptr: %p\n",ta.values[ta.count-1],&ta.values[ta.count-currDepth-2]->as.array[currDepth]);
-  
-  // // printf("ta ptr: %p, val Array ptr: %p\n",ta.values[ta.count-1],&ta.values[ta.count-currDepth-2]->as.array[currDepth]);
-  // int d = 0;
-  // do{
-  //   d++;
-  //   printf("ta count %d and d %d and total depth %d\n", ta.count,d,totalDepth);
-  //   createInTemp(&ta,createNewVal(ta.values[ta.count-d],initEmptyArray(VAL_UNKNOWN)));
-  //   printf("ta count %d and d %d\n", ta.count,d);
-  //   ta.values[ta.count - d - 1]->hasSubArray = true;
-  //   currDepth = d;
-  //   parsePrecedence(PREC_ARRAY);
-    
-  // } while (match(TOKEN_COMMA));
-  // ta.values[ta.count- d - 1]->type = ta.values[ta.count- 1]->type;
-  // consume(TOKEN_RIGHT_SQUARE, "Improperly closed array");
-  // //currDepth--;
-  // totalDepth--;
-  // if(totalDepth == 0)
-  //   emitArray();
+}
+
+static void setTypes(Array * a){
+  for (int i = 0; i < a->count; i++){
+    if(a->hasSubArray)
+      setTypes(&a->as.array[i]);
+  }
+  Array *temp = a;
+  while(temp->hasSubArray){
+    temp = temp->as.array;
+  }
+  a->type = temp->type;
 }
 
 static void closeArray(bool canAssign){
-  printf("ta count is %d\n", ta.count);
-  printValue(*currArray);
   if(ta.count >= 2)
      currArray = ta.values[ta.count - 2];
   ta.count--;
   if(ta.count == 0){
+    setTypes(currArray);
     emitArray();
   }
 }
@@ -643,20 +632,17 @@ static bool contains(Array* parent, Array * child){
 }
 
 static void chain(bool canAssign){
-  // while (!contains(ta.values[ta.count-currDepth-1],ta.values[ta.count-1]))
-  // {
-  //   currDepth++;
-  // }
-  // printf("array %d thinks that array %d is its parent\n", ta.count - 1, ta.count - currDepth - 1);
-  // printf("++++++++++++++chained curr depth %d",currDepth);
-  // createMultiDim(canAssign);
-  // currDepth = 0;
   parsePrecedence(PREC_ASSIGNMENT);
 }
 
 static void chainChar(bool canAssign){
   character(canAssign);
   chain(canAssign);
+}
+
+static void getDims(bool canAssign){
+  parsePrecedence(PREC_UNARY);
+  emitByte(OP_GET_DIMS);
 }
 
 ParseRule rules[] = {
@@ -675,15 +661,17 @@ ParseRule rules[] = {
     [TOKEN_SEMI] = {NULL, NULL, PREC_NONE},
     [TOKEN_FORWARD_SLASH] = {NULL, binary, PREC_FACTOR},
     [TOKEN_STAR] = {NULL, binary, PREC_FACTOR},
+    [TOKEN_AMP] = {unary, NULL, PREC_FACTOR},
     //[TOKEN_BANG]          = {NULL,     NULL,   PREC_NONE},
     [TOKEN_BANG_EQUAL] = {NULL, NULL, PREC_NONE},
     [TOKEN_EQUAL] = {NULL, NULL, PREC_NONE},
-    [TOKEN_EQUAL_EQUAL] = {NULL, NULL, PREC_NONE},
+    [TOKEN_EQUAL_EQUAL] = {NULL, binary, PREC_ASSIGNMENT},
     [TOKEN_GREATER] = {NULL, NULL, PREC_NONE},
     [TOKEN_GREATER_EQUAL] = {NULL, NULL, PREC_NONE},
     [TOKEN_LESS] = {NULL, NULL, PREC_NONE},
     [TOKEN_LESS_EQUAL] = {NULL, NULL, PREC_NONE},
     [TOKEN_IDENTIFIER] = {variable, NULL, PREC_NONE},
+    [TOKEN_POUND] = {unary, NULL, PREC_NONE},
     //[TOKEN_STRING]        = {NULL,     NULL,   PREC_NONE},
     [TOKEN_NUMBER] = {number, NULL, PREC_NONE},
     [TOKEN_CHAR] = {NULL, NULL, PREC_NONE},
