@@ -54,9 +54,10 @@ typedef enum {
 typedef struct Array{
   int capacity;
   int count;
+  struct Array* dims;
   uint32_t hash;
   ValueType type;
-  bool hasSubArray;
+  // bool hasSubArray;
   bool garbage;
   union{
     int           *ints;
@@ -67,8 +68,8 @@ typedef struct Array{
     Function      *funcs;
     Key           *keys;
     Evaluator     *evals;
-    struct Chunk  *chunks;
-    struct Array  **arrays;
+    //struct Chunk  *chunks;
+    //struct Array  **arrays;
   } as;
 } Array;
 
@@ -79,7 +80,7 @@ typedef struct ArrayArray{
 } ArrayArray;
 
 Array * initEmptyArray(ValueType t);
-Array * createArray(bool hasSub, ValueType t, int val,...);
+Array * createArray(ValueType t, int val,...);
 void * createNewVal(Array* array,void * val);
 void trashArray(Array *array);
 void initValueArray(ArrayArray* array);

@@ -115,90 +115,103 @@ static bool all(Array * a){
   if(a->type == VAL_NULL)
     return false;
   //addConstantArray(initEmptyArray(VAL_DOUBLE));
-  if(a->hasSubArray){
-    for (int i = 0; i < a->count; i++){
-      if(!all(a->as.arrays[i]))
-        return false;
-    }
-  }else{
-    for (int i = 0; i < a->count; i++){
-      if(a->as.doubles[i] == 0)
-        return false;
-    }
+  for (int i = 0; i < a->count;i++){
+    if(a->as.doubles[i] == 0)
+      return false;
   }
   return true;
+  // if (a->hasSubArray)
+  // {
+  //   for (int i = 0; i < a->count; i++)
+  //   {
+  //     if (!all(a->as.arrays[i]))
+  //       return false;
+  //   }
+  //   }
+  //   else
+  //   {
+  //     for (int i = 0; i < a->count; i++)
+  //     {
+  //       if (a->as.doubles[i] == 0)
+  //         return false;
+  //     }
+  //   }
+  // return true;
 }
 
 static Array* getArraySize(Array * a){
-  po p = addConstantArray(initEmptyArray(VAL_DOUBLE));
-  Array *temp = a;
-  while(temp->hasSubArray){
-    double b = (double)temp->count;
-    createNewVal(p.ptr, &b);
-    temp = *temp->as.arrays;
+  // po p = addConstantArray(initEmptyArray(VAL_DOUBLE));
+  // Array *temp = a;
+  // while(temp->hasSubArray){
+  //   double b = (double)temp->count;
+  //   createNewVal(p.ptr, &b);
+  //   temp = *temp->as.arrays;
+  // }
+  // double b = (double)temp->count;
+  // createNewVal(p.ptr, &b);
+  Array *res = addConstantArray(initEmptyArray(VAL_DOUBLE)).ptr;
+  res->dims = initEmptyArray(VAL_DOUBLE);
+  double x = 0;
+  createNewVal(res->dims, &x);
+  for (int i = 0; i < a->dims->count; i++){
+    double result = a->dims->as.doubles[i];
+    createNewVal(res,&result);
+    res->dims->as.doubles[0] += 1;
   }
-  double b = (double)temp->count;
-  createNewVal(p.ptr, &b);
-  return p.ptr;
+  return res;
 }
 
 static Array* compareArrays(Array* a, Array *b){
-  Array *res;
-  Array *tempa = a;
-  Array *tempb = b;
-  if(tempa->hasSubArray && tempb->hasSubArray){
-      res = addConstantArray(initEmptyArray(VAL_UNKNOWN)).ptr;
-      res->hasSubArray = true;
-      for (int i = 0; i < a->count; i++){
-        createNewVal(res, compareArrays(tempa->as.arrays[i], tempb->as.arrays[i]));
-      }
-      res->type = VAL_DOUBLE;
-  }else if(tempa->hasSubArray || tempb->hasSubArray){
-    res = addConstantArray(initEmptyArray(VAL_NULL)).ptr;
-  }else{
-    res = addConstantArray(initEmptyArray(VAL_DOUBLE)).ptr;
-    for (int i = 0; i < a->count; i++){
-      double result = (double)(a->as.doubles[i] == b->as.doubles[i]);
-      createNewVal(res,&result);
-    }
+  Array *res = addConstantArray(initEmptyArray(VAL_DOUBLE)).ptr;
+  res->dims = initEmptyArray(VAL_DOUBLE);
+  for (int i = 0; i < a->dims->count; i++){
+    createNewVal(res->dims, &a->dims->as.doubles[i]);
   }
-  //res->type = VAL_DOUBLE;
-  return res;
+  for (int i = 0; i < a->count; i++){
+    double result = a->as.doubles[i] == b->as.doubles[i];
+    createNewVal(res,&result);
+  }
+    // if(tempa->hasSubArray && tempb->hasSubArray){
+    //     res = addConstantArray(initEmptyArray(VAL_UNKNOWN)).ptr;
+    //     res->hasSubArray = true;
+    //     for (int i = 0; i < a->count; i++){
+    //       createNewVal(res, compareArrays(tempa->as.arrays[i], tempb->as.arrays[i]));
+    //     }
+    //     res->type = VAL_DOUBLE;
+    // }else if(tempa->hasSubArray || tempb->hasSubArray){
+    //   res = addConstantArray(initEmptyArray(VAL_NULL)).ptr;
+    // }else{
+    //   res = addConstantArray(initEmptyArray(VAL_DOUBLE)).ptr;
+    //   for (int i = 0; i < a->count; i++){
+    //     double result = (double)(a->as.doubles[i] == b->as.doubles[i]);
+    //     createNewVal(res,&result);
+    //   }
+    // }
+    // res->type = VAL_DOUBLE;
+    return res;
 }
 
 
 static Array* binaryOp(Array* a, Array* b,char op){
-    Array *c;
     Array *aSize = getArraySize(a);
     Array *bSize = getArraySize(b);
-    
-    // if(aSize->count == 1 && aSize->as.doubles[0] == 1
-    // || bSize->count == 1 && bSize->as.doubles[0] == 1){
-    //   if(aSize->count != bSize->count){
-    //     if(aSize->count > bSize->count){
-
-    //     }else{
-
-    //     }
-    //   }
-    //   else{
-
-    //   }
-      
-    // }
     if(!all(compareArrays(aSize,bSize))){
       runtimeError("array size mismatch for operation %c\n", op);
       return addConstantArray(initEmptyArray(VAL_NULL)).ptr;
     }
-    if(a->hasSubArray && b->hasSubArray){
-      c = initEmptyArray(VAL_UNKNOWN);
-      c->hasSubArray = true;
-      for (int i = 0; i < a->count; i++){
-        createNewVal(c, binaryOp(a->as.arrays[i], b->as.arrays[i], op));
-      }
-      c->type = VAL_DOUBLE;
-    }else{
-      c = initEmptyArray(VAL_DOUBLE);
+    Array *c = addConstantArray(initEmptyArray(VAL_DOUBLE)).ptr;
+    c->dims = initEmptyArray(VAL_DOUBLE);
+    for (int i = 0; i < a->dims->count; i++){
+      createNewVal(c->dims, &a->dims->as.doubles[i]);
+    }
+    // if(a->hasSubArray && b->hasSubArray){
+    //   c = initEmptyArray(VAL_UNKNOWN);
+    //   c->hasSubArray = true;
+    //   for (int i = 0; i < a->count; i++){
+    //     createNewVal(c, binaryOp(a->as.arrays[i], b->as.arrays[i], op));
+    //   }
+    //   c->type = VAL_DOUBLE;
+    // }else{
       for (int i = 0; i < a->count; i++){
         double value = a->as.doubles[i];
         switch (op)
@@ -213,8 +226,7 @@ static Array* binaryOp(Array* a, Array* b,char op){
         }
         createNewVal(c, &value);
       }
-    }
-    //po p = addConstantArray(initEmptyArray(VAL_DOUBLE));
+    // }
     
     return c;
 }

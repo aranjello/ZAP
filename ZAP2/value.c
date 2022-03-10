@@ -12,10 +12,10 @@ Array* initEmptyArray(ValueType t){
     array->count = 0;
     array->hash = 0;
     array->type = t;
-    array->hasSubArray = false;
     array->garbage = false;
     //setting any as value to NULL clears the array values as all as values point to the same initial memeory position
     array->as.doubles = NULL;
+    array->dims = NULL;
     return array;
 }
 
@@ -26,12 +26,12 @@ creates and intializes a new array
 @param val The number of values to be added to the array
 @param ... Pointers to the values to be put in the array
 */
-Array *createArray(bool hasSub, ValueType t,int val,...){
+Array *createArray(ValueType t,int val,...){
     va_list ptr;
     va_start(ptr, val);
     Array* array = malloc(sizeof(Array));
     *array = *(Array*)initEmptyArray(t);
-    array->hasSubArray = hasSub;
+    //array->hasSubArray = hasSub;
     for (int i = 0; i < val; i++){
         va_arg(ptr, void *);
         switch(t){
@@ -85,9 +85,9 @@ void * createNewVal(Array* array, void * val){
             array->as.chars = GROW_ARRAY(char,array->as.chars,
                                     oldCapacity, array->capacity);
             break;
-        case VAL_UNKNOWN:
-            array->as.arrays = GROW_ARRAY(Array*, array->as.arrays, oldCapacity, array->capacity);
-            break;
+        // case VAL_UNKNOWN:
+        //     array->as.arrays = GROW_ARRAY(Array*, array->as.arrays, oldCapacity, array->capacity);
+        //     break;
         default:
             printf("array type not set\n");
             break;
@@ -110,10 +110,10 @@ void * createNewVal(Array* array, void * val){
             array->as.chars[array->count - 1] = *(char *)val;
             return &array->as.chars[array->count - 1];
             break;
-        case VAL_UNKNOWN :
-            array->as.arrays[array->count - 1] = (Array*)val;
-            return array->as.arrays[array->count - 1];
-            break;
+        // case VAL_UNKNOWN :
+        //     array->as.arrays[array->count - 1] = (Array*)val;
+        //     return array->as.arrays[array->count - 1];
+        //     break;
         default:
             printf("array type not set for return\n");
             return NULL;
@@ -179,65 +179,95 @@ void freeValueArray(ArrayArray* array) {
     initValueArray(array);
 }
 
+static int printSub(Array value, double count, int offset){
+    // for (int i = 0; i < value.dims->count; i++){
+    //     printf("%g", value.dims->as.doubles[i]);
+    // }
+        if (value.dims->count == count + 1)
+        {
+            for (int i = 0; i < value.dims->as.doubles[(int)count]; i++)
+            {
+                
+                if (i > 0)
+                    if (value.type == VAL_DOUBLE)
+                        printf(",");
+                switch (value.type)
+                {
+                case VAL_UNKNOWN:
+                    printf("not set");
+                    break;
+                case VAL_DOUBLE:
+                    printf("%g", value.as.doubles[i+offset]);
+                    break;
+                case VAL_KEY:
+                {
+                    Key k = value.as.keys[i];
+                    for (int j = 0; j < k.length; j++){
+                        if (k.value[j] == '\0')
+                            break;
+                        printf("%c",k.value[j]);
+                    }
+                    break;
+                }
+                
+            case VAL_FUNC:{
+                printf("<fn %s>", value.as.funcs->name);
+                break;
+            }
+            default:
+                printf("dont know");
+                break;
+            }
+            
+        }
+        offset = value.dims->as.doubles[(int)count];
+    }else{
+        for (int i = 0; i < value.dims->as.doubles[(int)count];i++){
+            if(i > 0)
+                printf(",");
+            printf("[");
+            offset += printSub(value, count + 1,offset);
+            printf("]");
+        }
+    }
+    return offset;
+}
+
 /*
 prints the values out of an array
 @param value The array to print from
 */
 void printValue(Array value) {
     printf("[");
-    while (value.hasSubArray)
-    {
+    printSub(value, 0,0);
+    printf("]");
+    // printf("[");
+    // while (value.hasSubArray)
+    // {
         
-        for (int i = 0; i < value.count; i++){
-            if(i>0)
-                printf(",");
-            printValue(*value.as.arrays[i]);
+    //     for (int i = 0; i < value.count; i++){
+    //         if(i>0)
+    //             printf(",");
+    //         printValue(*value.as.arrays[i]);
             
-        }
-        printf("]"); 
-        return;
-    }
-    if(value.type == VAL_NULL)
-        printf("VAL NIL");
-    if(value.type == VAL_CHAR)
-    {
-        printf("%s]", value.as.chars);
-        return;
-    }
+    //     }
+    //     printf("]"); 
+    //     return;
+    // }
+    // if(value.type == VAL_NULL)
+    //     printf("VAL NIL");
+    // if(value.type == VAL_CHAR)
+    // {
+    //     printf("%s]", value.as.chars);
+    //     return;
+    // }
 
     
-    for (int i = 0; i < value.count; i++){
-        if(i>0)
-            if(value.type == VAL_DOUBLE)
-                printf(",");
-        switch (value.type)
-        {
-        case VAL_UNKNOWN: 
-            printf("not set");
-            break;
-        case VAL_DOUBLE: 
-            printf("%g",value.as.doubles[i]);
-            break;
-        case VAL_KEY:{
-                Key k = value.as.keys[i];
-                for (int j = 0; j < k.length; j++){
-                    if (k.value[j] == '\0')
-                        break;
-                    printf("%c",k.value[j]);
-                }
-                break;
-            }
-        case VAL_FUNC:{
-            printf("<fn %s>", value.as.funcs->name);
-            break;
-        }
-        default:
-            printf("dont know");
-            break;
-        }
+    // for (int i = 0; i < value.count; i++){
         
-    }
-    printf("]");
+        
+    // }
+    // printf("]");
 }
 
 Array* newFunction(){

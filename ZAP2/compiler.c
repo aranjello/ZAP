@@ -47,13 +47,13 @@ typedef struct {
   int scopeDepth;
 } Compiler;
 
-typedef struct tempArray{
-  int count;
-  int capacity;
-  Array **values;
-} tempArray;
+// typedef struct tempArray{
+//   int count;
+//   int capacity;
+//   Array **values;
+// } tempArray;
 
-tempArray ta;
+// tempArray ta;
 
 Array* currArray;
 
@@ -63,29 +63,31 @@ Compiler* current = NULL;
 
 int currDepth = 0;
 
-int totalDepth = 0;
+int shallowestClosedDepth = INT_MAX;
+
+bool parseSet = false;
 
 Chunk* compilingChunk;
 
 VM* currVm;
 
-static void initTempArray(tempArray* array) {
-    array->capacity = 0;
-    array->count = 0;
-    array->values = NULL;
-}
+// static void initTempArray(tempArray* array) {
+//     array->capacity = 0;
+//     array->count = 0;
+//     array->values = NULL;
+// }
 
-static void* createInTemp(tempArray* array, Array * arr) {
-    if (array->capacity < array->count + 1) {
-        int oldCapacity = array->capacity;
-        array->capacity = GROW_CAPACITY(oldCapacity);
-        array->values = GROW_ARRAY(Array*, array->values,
-                                    oldCapacity, array->capacity);
-    }
-    array->count++;
-    array->values[array->count - 1] = arr;
-    return &array->values[array->count-1];
-}
+// static void* createInTemp(tempArray* array, Array * arr) {
+//     if (array->capacity < array->count + 1) {
+//         int oldCapacity = array->capacity;
+//         array->capacity = GROW_CAPACITY(oldCapacity);
+//         array->values = GROW_ARRAY(Array*, array->values,
+//                                     oldCapacity, array->capacity);
+//     }
+//     array->count++;
+//     array->values[array->count - 1] = arr;
+//     return &array->values[array->count-1];
+// }
 
 /*
 get the current chunk we are working in
@@ -181,7 +183,7 @@ static uint8_t makeConstant() {
     error("Too many constants in one chunk.");
     return 0;
   }
-  initTempArray(&ta);
+  currArray = initEmptyArray(VAL_UNKNOWN);
   //freeValueArray(&ta);
  // ta = (Array*)initEmptyArray(VAL_UNKNOWN);
   return (uint8_t)constant;
@@ -496,32 +498,32 @@ static void grouping(bool canAssign) {
   consume(TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
 }
 
-static void number(bool canAssign) {
-  if(currArray->count == 0){
-    currArray->type = VAL_DOUBLE;
-  }
+// static void number(bool canAssign) {
+//   if(currArray->count == 0){
+//     currArray->type = VAL_DOUBLE;
+//   }
 
-  if(currArray->type != VAL_DOUBLE){
-    errorAt(&parser.previous,"array is incorrect type for number");
-    return;
-  }
-  double val = strtod(parser.previous.start, NULL);
-  createNewVal(currArray,&val);
-}
+//   if(currArray->type != VAL_DOUBLE){
+//     errorAt(&parser.previous,"array is incorrect type for number");
+//     return;
+//   }
+//   double val = strtod(parser.previous.start, NULL);
+//   createNewVal(currArray,&val);
+// }
 
-static void character(bool canAssign){
-  if(ta.count == 0){
-    currArray = (Array*)initEmptyArray(VAL_CHAR);
-  }
-  if(currArray->type == VAL_UNKNOWN){
-    currArray->type = VAL_CHAR;
-  }
-  if(currArray->type != VAL_CHAR){
-    errorAtCurrent("array is incorrect type for character");
-    return;
-  }
-  createNewVal(currArray , (char *)parser.previous.start);
-}
+// static void character(bool canAssign){
+//   if(ta.count == 0){
+//     currArray = (Array*)initEmptyArray(VAL_CHAR);
+//   }
+//   if(currArray->type == VAL_UNKNOWN){
+//     currArray->type = VAL_CHAR;
+//   }
+//   if(currArray->type != VAL_CHAR){
+//     errorAtCurrent("array is incorrect type for character");
+//     return;
+//   }
+//   createNewVal(currArray , (char *)parser.previous.start);
+// }
 
 // static void addToArray(){
 //   if(tempArray == NULL){
@@ -562,7 +564,8 @@ static void parseArray(bool canAssign){
   const char *arr = parser.previous.start;
   char *valHolder;
   if(isDigit(arr[0])||arr[0]=='-'||arr[0]=='.'){
-    if(currArray->count == 0){
+    printf("creating array\n");
+    if(currArray->dims->as.doubles[currDepth-1] == 0){
       currArray->type = VAL_DOUBLE;
     }
 
@@ -572,11 +575,15 @@ static void parseArray(bool canAssign){
     }
     double val = strtod(parser.previous.start, &valHolder);
     createNewVal(currArray,&val);
+    if(!parseSet)
+      currArray->dims->as.doubles[currDepth-1] += 1;
     while (valHolder != parser.previous.start+parser.previous.length)
     {
       valHolder++;
       val = strtod(valHolder, &valHolder);
       createNewVal(currArray,&val);
+      if(!parseSet)
+        currArray->dims->as.doubles[currDepth-1] += 1;
     }
   }else if(isAlpha(arr[0])){
     if(currArray->count == 0){
@@ -596,8 +603,9 @@ static void parseArray(bool canAssign){
     createNewVal(currArray, &close);
     currArray->hash = hashString(currArray->as.chars,currArray->count);
   }
-  if(ta.count < 2)
-    emitArray();
+  parseSet = true;
+  // if(currDepth == 1)
+  //   emitArray();
   //advance();
 }
 
@@ -694,48 +702,61 @@ static void and_(bool canAssign) {
 static void chain(bool canAssign);
 
 static void createMultiDim(bool canAssign){
-  
-  if(ta.count > 0 ){
-    ta.values[ta.count - 1]->hasSubArray = true;
-    createInTemp(&ta,createNewVal(ta.values[ta.count - 1],  initEmptyArray(VAL_UNKNOWN)));
-    currArray = ta.values[ta.count - 1];
-  }else{
-    createInTemp(&ta, initEmptyArray(VAL_UNKNOWN));
-    currArray = ta.values[ta.count - 1];
+  if(currDepth == 0){
+    currArray->dims = initEmptyArray(VAL_DOUBLE);
   }
-  parsePrecedence(PREC_ASSIGNMENT);
+  currDepth++;
+  if(currDepth > currArray->dims->count){
+    double minDim = 0;
+    createNewVal(currArray->dims, &minDim);
+  }
+  if(currDepth <= shallowestClosedDepth)
+    currArray->dims->as.doubles[currDepth-2]+=1;
+    // ta.values[ta.count - 1]->hasSubArray = true;
+    // createInTemp(&ta,createNewVal(ta.values[ta.count - 1],  initEmptyArray(VAL_UNKNOWN)));
+    // currArray = ta.values[ta.count - 1];
+  // }else{
+  //   createInTemp(&ta, initEmptyArray(VAL_UNKNOWN));
+  //   currArray = ta.values[ta.count - 1];
+  // }
+    
+    parsePrecedence(PREC_ASSIGNMENT);
 }
 
-static void setTypes(Array * a){
-  for (int i = 0; i < a->count; i++){
-    if(a->hasSubArray)
-      setTypes(a->as.arrays[i]);
-  }
-  Array *temp = a;
-  while(temp->hasSubArray){
-    temp = *temp->as.arrays;
-  }
-}
+// static void setTypes(Array * a){
+//   for (int i = 0; i < a->count; i++){
+//     if(a->hasSubArray)
+//       setTypes(a->as.arrays[i]);
+//   }
+//   Array *temp = a;
+//   while(temp->hasSubArray){
+//     temp = *temp->as.arrays;
+//   }
+// }
 
 static void closeArray(bool canAssign){
-  if(ta.count >= 2)
-     currArray = ta.values[ta.count - 2];
-  ta.count--;
-  if(ta.count == 0){
-    setTypes(currArray);
+  // if(ta.count >= 2)
+  //    currArray = ta.values[ta.count - 2];
+  // ta.count--;
+  printf("curr %d deep %d", currDepth, shallowestClosedDepth);
+  shallowestClosedDepth = currDepth < shallowestClosedDepth ? currDepth : shallowestClosedDepth;
+  currDepth--;
+  if(currDepth == 0){
+    //setTypes(currArray);
+    parseSet = false;
     emitArray();
   }
 }
 
-static bool contains(Array* parent, Array * child){
-  if(!parent->hasSubArray)
-    return false;
-  for (int i = 0; i < parent->count; i++){
-    if(parent->as.arrays[i] == child)
-      return true;
-  }
-  return false;
-}
+// static bool contains(Array* parent, Array * child){
+//   if(!parent->hasSubArray)
+//     return false;
+//   for (int i = 0; i < parent->count; i++){
+//     if(parent->as.arrays[i] == child)
+//       return true;
+//   }
+//   return false;
+// }
 
 static void chain(bool canAssign){
   parsePrecedence(PREC_ASSIGNMENT);
@@ -779,7 +800,7 @@ ParseRule rules[] = {
     [TOKEN_IDENTIFIER] = {variable, NULL, PREC_NONE},
     [TOKEN_POUND] = {unary, NULL, PREC_NONE},
     //[TOKEN_STRING]        = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_NUMBER] = {number, NULL, PREC_NONE},
+    [TOKEN_NUMBER] = {NULL, NULL, PREC_NONE},
     [TOKEN_CHAR] = {NULL, NULL, PREC_NONE},
     [TOKEN_AND]  = {NULL,     and_,   PREC_NONE},
     [TOKEN_CLASS] = {NULL, NULL, PREC_NONE},
@@ -835,7 +856,7 @@ bool compile(VM* vm,const char* source, Chunk* chunk) {
   compilingChunk = chunk;
   parser.hadError = false;
   parser.panicMode = false;
-  initTempArray(&ta);
+  currArray = initEmptyArray(VAL_UNKNOWN);
   advance();
   while (!match(TOKEN_EOF)) {
     declaration();
