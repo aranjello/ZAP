@@ -1,9 +1,8 @@
 #ifndef ZAP_table_h
 #define ZAP_table_h
 
-#include "value.h"
-#include "codeChunk.h"
 #include "common.h"
+#include "value.h"
 
 //A key value pair that will be stored in a table
 typedef struct Entry{

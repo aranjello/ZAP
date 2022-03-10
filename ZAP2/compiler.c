@@ -54,9 +54,6 @@ int totalDepth = 0;
 
 Chunk* compilingChunk;
 
-VM* currVM;
-
-
 static void initTempArray(tempArray* array) {
     array->capacity = 0;
     array->count = 0;
@@ -196,11 +193,11 @@ static uint8_t parseVariable(const char* errorMessage) {
   consume(TOKEN_IDENTIFIER, errorMessage);
   
   uint32_t hash = hashString(parser.previous.start, parser.previous.length);
-  po p = tableFindKey(&currVM->globalInterned, parser.previous.start, parser.previous.length, hash);
+  po p = tableFindKey(&currentChunk()->interned, parser.previous.start, parser.previous.length, hash);
   if(p.ptr == NULL){
     Key k;
     p = addGlobKey(parser.previous.start,parser.previous.length);
-    tableSet(&currVM->globalInterned, p.ptr, NULL);
+    tableSet(&currentChunk()->interned, p.ptr, NULL);
   }
   return (uint8_t)p.offset;
 }
@@ -235,13 +232,13 @@ static void varDeclaration() {
   if (match(TOKEN_EQUAL)) {
     expression();
   } else {
-    Array a = *(Array*)initEmptyArray(VAL_NIL);
+    Array a = *(Array*)initEmptyArray(VAL_NULL);
     int constant = addArray(a).offset;
     if (constant > UINT8_MAX) {
       error("Too many constants in one chunk.");
       return;
     }
-    a = *(Array*)initEmptyArray(VAL_NIL);
+    a = *(Array*)initEmptyArray(VAL_NULL);
     emitBytes(OP_ARRAY, constant);
   }
 
@@ -408,10 +405,10 @@ static void grouping(bool canAssign) {
 
 static void number(bool canAssign) {
   if(currArray->count == 0){
-    currArray->type = VAL_NUMBER;
+    currArray->type = VAL_DOUBLE;
   }
 
-  if(currArray->type != VAL_NUMBER){
+  if(currArray->type != VAL_DOUBLE){
     errorAt(&parser.previous,"array is incorrect type for number");
     return;
   }
@@ -474,17 +471,17 @@ static void parseArray(bool canAssign){
   if(isDigit(arr[0])){
     if(ta.count == 1){
       freeArray(ta.values[0]);
-      ta.values[0] = (Array*)initEmptyArray(VAL_NUMBER);
+      ta.values[0] = (Array*)initEmptyArray(VAL_DOUBLE);
     }else{
       printf("attempt ta.count = %d cuurdepth = %d\n",ta.count,currDepth);
       freeArray(ta.values[ta.count-1]);
       ta.values[ta.count - currDepth-1]->count--;
-      ta.values[ta.count-1] = createNewVal(ta.values[ta.count - currDepth - 1], initEmptyArray(VAL_NUMBER));
-      //printf("t atype is %d\n", (*(Array*)createNewVal(ta.values[ta.count - currDepth - 1], initEmptyArray(VAL_NUMBER))).type);
+      ta.values[ta.count-1] = createNewVal(ta.values[ta.count - currDepth - 1], initEmptyArray(VAL_DOUBLE));
+      //printf("t atype is %d\n", (*(Array*)createNewVal(ta.values[ta.count - currDepth - 1], initEmptyArray(VAL_DOUBLE))).type);
     }
     printf("done ta val is %s\n",ta.values[ta.count-1] == NULL?"bad":"good");
     double val = strtod(arr, &valHolder);
-    printf("done ta type is %s and val is %g\n",ta.values[ta.count-1]->type==VAL_NUMBER?"good":"bad",val);
+    printf("done ta type is %s and val is %g\n",ta.values[ta.count-1]->type==VAL_DOUBLE?"good":"bad",val);
     createNewVal(ta.values[ta.count - 1], &val);
     printf("done\n");
     while (valHolder[0] != ']')
@@ -508,7 +505,7 @@ static void parseArray(bool canAssign){
       arr++;
     }
     createNewVal(ta.values[ta.count - 1], '\0');
-    ta.values[ta.count-1]->hash = hashString(ta.values[ta.count-1]->as.character,ta.values[ta.count-1]->count);
+    ta.values[ta.count-1]->hash = hashString(ta.values[ta.count-1]->as.chars,ta.values[ta.count-1]->count);
   }
   if(ta.count < 2)
     emitArray();
@@ -542,11 +539,11 @@ static void unary(bool canAssign) {
 static void namedVariable(Token name, bool canAssign) {
 
   uint32_t hash = hashString(name.start, name.length);
-  po p = tableFindKey(&currVM->globalInterned, name.start, name.length, hash);
+  po p = tableFindKey(&currentChunk()->interned, name.start, name.length, hash);
   if(p.ptr == NULL){
     Key k;
     p = addGlobKey(parser.previous.start,parser.previous.length);
-    tableSet(&currVM->globalInterned, p.ptr, NULL);
+    tableSet(&currentChunk()->interned, p.ptr, NULL);
   }
   if (canAssign && match(TOKEN_EQUAL)) {
     expression();
@@ -602,11 +599,11 @@ static void createMultiDim(bool canAssign){
 static void setTypes(Array * a){
   for (int i = 0; i < a->count; i++){
     if(a->hasSubArray)
-      setTypes(&a->as.array[i]);
+      setTypes(&a->as.arrays[i]);
   }
   Array *temp = a;
   while(temp->hasSubArray){
-    temp = temp->as.array;
+    temp = temp->as.arrays;
   }
   a->type = temp->type;
 }
@@ -625,7 +622,7 @@ static bool contains(Array* parent, Array * child){
   if(!parent->hasSubArray)
     return false;
   for (int i = 0; i < parent->count; i++){
-    if(&parent->as.array[i] == child)
+    if(&parent->as.arrays[i] == child)
       return true;
   }
   return false;
@@ -721,8 +718,7 @@ static ParseRule* getRule(TokenType type) {
   return &rules[type];
 }
 
-bool compile(const char* source, Chunk* chunk, VM* vm) {
-  currVM = vm;
+bool compile(const char* source, Chunk* chunk) {
   initScanner(source);
   compilingChunk = chunk;
   parser.hadError = false;

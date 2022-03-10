@@ -2,11 +2,12 @@
 #define ZAP_value_h
 
 #include "common.h"
-#include "codeChunk.h"
+
+struct Chunk;
 
 typedef struct Function{
   int arity;
-  Chunk chunk;
+  struct Chunk* chunk;
   int nameLength;
   char* name;
 } Function;
@@ -48,9 +49,6 @@ typedef enum {
   VAL_NULL, 
   //UNKNOWN is for array being created before a type is defined
   VAL_UNKNOWN,
-  
-  
-  
 } ValueType;
 
 typedef struct Array{
@@ -69,7 +67,7 @@ typedef struct Array{
     Function      *funcs;
     Key           *keys;
     Evaluator     *evals;
-    Chunk         *chunks;
+    struct Chunk  *chunks;
     struct Array  *arrays;
   } as;
 } Array;

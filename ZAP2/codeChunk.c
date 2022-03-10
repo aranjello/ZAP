@@ -1,7 +1,8 @@
 #include <stdlib.h>
 
-#include "codeChunk.h"
 #include "memory.h"
+#include "codeChunk.h"
+
 /*
 initializes code chunck
 @param chunk The chunk to initialize
@@ -43,4 +44,45 @@ void writeChunk(Chunk* chunk, uint8_t byte, int line) {
   chunk->lines[chunk->count] = line;
   chunk->code[chunk->count] = byte;
   chunk->count++;
+}
+
+
+static uint32_t hashString(const char* key, int length) {
+  uint32_t hash = 2166136261u;
+  for (int i = 0; i < length; i++) {
+    hash ^= (uint8_t)key[i];
+    hash *= 16777619;
+  }
+  return hash;
+}
+
+static po allocateNewKey(Array* keyArray,const char * value, int length){
+  po p;
+  Key key;
+  key.value = malloc(sizeof(char) * length);
+  memcpy(key.value, value, length);
+  key.hash = hashString(value,length);
+  key.length = length;
+  p.ptr = createNewVal(keyArray,&key);
+  p.offset = keyArray->count-1;
+  return p;
+}
+
+bool internString(Chunk* c,const char * value, int length){
+  return tableSet(&c->interned, allocateNewKey(c->Keys.as.keys,value, length).ptr, NULL);
+}
+
+po addKey(Chunk* c,const char * value, int length){
+  return allocateNewKey(c->Keys.as.keys,value, length);
+}
+
+bool writeVar(Chunk* c,Key* k, Array* a){
+  return tableSet(&c->vars, k, a);
+}
+
+po addArray(Chunk* c,Array array){
+  po p;
+  p.ptr = createValueArray(&c->data,&array);
+  p.offset = c->data.count - 1;
+  return p;
 }
