@@ -40,7 +40,7 @@ Array* pop();
 bool internGlobString(const char * value, int length);
 po addGlobKey(const char * value, int length);
 bool writeGlobVar(Key* k, Array* a);
-po addConstantArray(Array array);
+po addConstantArray(Array *array);
 
 
 

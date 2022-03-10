@@ -86,7 +86,7 @@ void * createNewVal(Array* array, void * val){
                                     oldCapacity, array->capacity);
             break;
         case VAL_UNKNOWN:
-            array->as.arrays = GROW_ARRAY(Array, array->as.arrays, oldCapacity, array->capacity);
+            array->as.arrays = GROW_ARRAY(Array*, array->as.arrays, oldCapacity, array->capacity);
             break;
         default:
             printf("array type not set\n");
@@ -111,8 +111,8 @@ void * createNewVal(Array* array, void * val){
             return &array->as.chars[array->count - 1];
             break;
         case VAL_UNKNOWN :
-            array->as.arrays[array->count - 1] = *(Array*)val;
-            return &array->as.arrays[array->count - 1];
+            array->as.arrays[array->count - 1] = (Array*)val;
+            return array->as.arrays[array->count - 1];
             break;
         default:
             printf("array type not set for return\n");
@@ -146,12 +146,12 @@ void* createValueArray(ArrayArray* array, Array * arr) {
     if (array->capacity < array->count + 1) {
         int oldCapacity = array->capacity;
         array->capacity = GROW_CAPACITY(oldCapacity);
-        array->values = GROW_ARRAY(Array, array->values,
+        array->values = GROW_ARRAY(Array*, array->values,
                                     oldCapacity, array->capacity);
     }
     array->count++;
-    array->values[array->count - 1] = *arr;
-    return &array->values[array->count-1];
+    array->values[array->count - 1] = arr;
+    return array->values[array->count-1];
 }
 
 /*
@@ -160,19 +160,19 @@ frees the memory used by a chunks array array
 */
 void freeValueArray(ArrayArray* array) {
     for (int i = 0; i < array->count; i++){
-        switch(array->values[i].type)
+        switch(array->values[i]->type)
         {
             case VAL_KEY:
-                FREE_ARRAY(Key, array->values[i].as.keys, array->values[i].capacity);
+                FREE_ARRAY(Key, array->values[i]->as.keys, array->values[i]->capacity);
                 break;
             case VAL_DOUBLE:
-                FREE_ARRAY(double, array->values[i].as.doubles, array->values[i].capacity);
+                FREE_ARRAY(double, array->values[i]->as.doubles, array->values[i]->capacity);
                 break;
             case VAL_CHAR:
-                FREE_ARRAY(char, array->values[i].as.chars, array->values[i].capacity);
+                FREE_ARRAY(char, array->values[i]->as.chars, array->values[i]->capacity);
                 break;  
         }
-        array->values[i] = *(Array*)initEmptyArray(VAL_NULL);
+        array->values[i] = initEmptyArray(VAL_NULL);
     }
     FREE_ARRAY(Array, array->values, array->capacity);
     initValueArray(array);
@@ -190,7 +190,7 @@ void printValue(Array value) {
         for (int i = 0; i < value.count; i++){
             if(i>0)
                 printf(",");
-            printValue(value.as.arrays[i]);
+            printValue(*value.as.arrays[i]);
             
         }
         printf("]"); 
@@ -203,7 +203,7 @@ void printValue(Array value) {
         printf("%s]", value.as.chars);
         return;
     }
-    
+
     
     for (int i = 0; i < value.count; i++){
         if(i>0)

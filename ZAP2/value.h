@@ -68,14 +68,14 @@ typedef struct Array{
     Key           *keys;
     Evaluator     *evals;
     struct Chunk  *chunks;
-    struct Array  *arrays;
+    struct Array  **arrays;
   } as;
 } Array;
 
 typedef struct ArrayArray{
   int capacity;
   int count;
-  Array* values;
+  Array** values;
 } ArrayArray;
 
 Array * initEmptyArray(ValueType t);

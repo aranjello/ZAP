@@ -176,7 +176,7 @@ static void emitReturn() {
 }
 
 static uint8_t makeConstant() {
-  int constant = addConstantArray(*currArray).offset;
+  int constant = addConstantArray(currArray).offset;
   if (constant > UINT8_MAX) {
     error("Too many constants in one chunk.");
     return 0;
@@ -295,14 +295,12 @@ static void expression() {
 }
 
 static void varDeclaration() {
-  printf("test1\n");
   uint8_t global = parseVariable("Expect variable name.");
 
   if (match(TOKEN_EQUAL)) {
-    printf("emmiting\n");
     expression();
   } else {
-    Array a = *(Array*)initEmptyArray(VAL_NULL);
+    Array *a = (Array*)initEmptyArray(VAL_NULL);
     int constant = addConstantArray(a).offset;
     if (constant > UINT8_MAX) {
       error("Too many constants in one chunk.");
@@ -719,13 +717,12 @@ static void createMultiDim(bool canAssign){
 static void setTypes(Array * a){
   for (int i = 0; i < a->count; i++){
     if(a->hasSubArray)
-      setTypes(&a->as.arrays[i]);
+      setTypes(a->as.arrays[i]);
   }
   Array *temp = a;
   while(temp->hasSubArray){
-    temp = temp->as.arrays;
+    temp = *temp->as.arrays;
   }
-  a->type = temp->type;
 }
 
 static void closeArray(bool canAssign){
@@ -742,7 +739,7 @@ static bool contains(Array* parent, Array * child){
   if(!parent->hasSubArray)
     return false;
   for (int i = 0; i < parent->count; i++){
-    if(&parent->as.arrays[i] == child)
+    if(parent->as.arrays[i] == child)
       return true;
   }
   return false;

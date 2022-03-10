@@ -87,9 +87,9 @@ bool writeGlobalVar(Key* k, Array* a){
   return tableSet(&vm.globVars, k, a);
 }
 
-po addConstantArray(Array array){
+po addConstantArray(Array* array){
   po p;
-  p.ptr = createValueArray(&vm.constantArrays,&array);
+  p.ptr = createValueArray(&vm.constantArrays,array);
   p.offset = vm.constantArrays.count - 1;
   return p;
 }
@@ -102,11 +102,11 @@ static Array* peek(int distance) {
 static void setTypes(Array * a){
   for (int i = 0; i < a->count; i++){
     if(a->hasSubArray)
-      setTypes(&a->as.arrays[i]);
+      setTypes(a->as.arrays[i]);
   }
   Array *temp = a;
   while(temp->hasSubArray){
-    temp = temp->as.arrays;
+    temp = *temp->as.arrays;
   }
   a->type = temp->type;
 }
@@ -114,10 +114,10 @@ static void setTypes(Array * a){
 static bool all(Array * a){
   if(a->type == VAL_NULL)
     return false;
-  Array *res = addConstantArray(*initEmptyArray(VAL_DOUBLE)).ptr;
+  Array *res = addConstantArray(initEmptyArray(VAL_DOUBLE)).ptr;
   if(a->hasSubArray){
     for (int i = 0; i < a->count; i++){
-      if(!all(&a->as.arrays[i]))
+      if(!all(a->as.arrays[i]))
         return false;
     }
   }else{
@@ -130,13 +130,12 @@ static bool all(Array * a){
 }
 
 static Array* getArraySize(Array * a){
-  Array c = *(Array*)initEmptyArray(VAL_DOUBLE);
-  po p = addConstantArray(c);
+  po p = addConstantArray(initEmptyArray(VAL_DOUBLE));
   Array *temp = a;
   while(temp->hasSubArray){
     double b = (double)temp->count;
     createNewVal(p.ptr, &b);
-    temp = temp->as.arrays;
+    temp = *temp->as.arrays;
   }
   double b = (double)temp->count;
   createNewVal(p.ptr, &b);
@@ -148,16 +147,16 @@ static Array* compareArrays(Array* a, Array *b){
   Array *tempa = a;
   Array *tempb = b;
   if(tempa->hasSubArray && tempb->hasSubArray){
-      res = addConstantArray(*initEmptyArray(VAL_UNKNOWN)).ptr;
+      res = addConstantArray(initEmptyArray(VAL_UNKNOWN)).ptr;
       res->hasSubArray = true;
       for (int i = 0; i < a->count; i++){
-        createNewVal(res, compareArrays(&tempa->as.arrays[i], &tempb->as.arrays[i]));
+        createNewVal(res, compareArrays(tempa->as.arrays[i], tempb->as.arrays[i]));
       }
       res->type = VAL_DOUBLE;
   }else if(tempa->hasSubArray || tempb->hasSubArray){
-    res = addConstantArray(*initEmptyArray(VAL_NULL)).ptr;
+    res = addConstantArray(initEmptyArray(VAL_NULL)).ptr;
   }else{
-    res = addConstantArray(*initEmptyArray(VAL_DOUBLE)).ptr;
+    res = addConstantArray(initEmptyArray(VAL_DOUBLE)).ptr;
     for (int i = 0; i < a->count; i++){
       double result = (double)(a->as.doubles[i] == b->as.doubles[i]);
       createNewVal(res,&result);
@@ -171,19 +170,14 @@ static Array* compareArrays(Array* a, Array *b){
 static bool binaryOp(char op){
     Array *b = pop();
     Array *a = pop();
-    Array c = *(Array*)initEmptyArray(VAL_DOUBLE);
-
     if(!all(compareArrays(getArraySize(a),getArraySize(b)))){
       runtimeError("array size mismatch for operation %c\n", op);
       return false;
     }
-
     
-    po p = addConstantArray(c);
+    po p = addConstantArray(initEmptyArray(VAL_DOUBLE));
     for (int i = 0; i < a->count; i++){
-      printf("a count %d i count %d\n", a->count, i);
         double value = a->as.doubles[i];
-        printf("value is %g\n", value);
         switch (op)
         {
           case '+': value += b->as.doubles[i]; break;
@@ -194,15 +188,11 @@ static bool binaryOp(char op){
           default:
               break;
         }
-
         createNewVal(p.ptr, &value);
-        
     }
-    printf("here");
     trashArray(a);
     trashArray(b);
     push(p.ptr);
-    printf("here");
     return true;
 }
 
@@ -210,7 +200,7 @@ static bool binaryOp(char op){
 static void getArrayVal(){
   Array *indicies = pop();
   Array* val = pop();
-  Array c = *(Array*)initEmptyArray(VAL_DOUBLE);
+  Array *c = (Array*)initEmptyArray(VAL_DOUBLE);
  
   po p = addConstantArray(c);
 
@@ -243,7 +233,7 @@ static bool isFalsey(Array array){
 
 static InterpretResult run() {
 #define READ_BYTE() (*vm.ip++)
-#define READ_CONSTANT() &(vm.constantArrays.values[READ_BYTE()])
+#define READ_CONSTANT() (vm.constantArrays.values[READ_BYTE()])
 #define READ_SHORT() \
     (vm.ip += 2, (uint16_t)((vm.ip[-2] << 8) | vm.ip[-1]))
 #define READ_KEY() &(vm.globKeys.as.keys[READ_BYTE()]);
@@ -278,7 +268,7 @@ static InterpretResult run() {
         num = 1;
       }
       createNewVal(res, &num);
-      push(res);
+      push(addConstantArray(res).ptr);
       break;
     }
     case OP_COMPARE:{
@@ -371,6 +361,10 @@ static InterpretResult run() {
       }
       case OP_GET_LOCAL: {
         uint8_t slot = READ_BYTE();
+        // Array *temp = addConstantArray(*initEmptyArray(vm.stack[slot]->type)).ptr;
+        // for (int i = 0; i < vm.stack[slot]->count; i++){
+        //   createNewVal(temp, &vm.stack[slot]->as.doubles[i]);
+        // }
         push(vm.stack[slot]); 
         break;
       }

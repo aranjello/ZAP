@@ -69,7 +69,7 @@ static int arrayInstruction(VM* vm,const char* name, Chunk* chunk,
                                int offset) {
   uint8_t constant = chunk->code[offset + 1];
   printf("%-16s %4d '", name, constant);
-  printValue(vm->constantArrays.values[constant]);
+  printValue(*vm->constantArrays.values[constant]);
   printf("'\n");
   return offset + 2;
 }
