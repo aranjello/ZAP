@@ -99,22 +99,22 @@ static Array* peek(int distance) {
   return vm.stackTop[-1 - distance];
 }
 
-static void setTypes(Array * a){
-  for (int i = 0; i < a->count; i++){
-    if(a->hasSubArray)
-      setTypes(a->as.arrays[i]);
-  }
-  Array *temp = a;
-  while(temp->hasSubArray){
-    temp = *temp->as.arrays;
-  }
-  a->type = temp->type;
-}
+// static void setTypes(Array * a){
+//   for (int i = 0; i < a->count; i++){
+//     if(a->hasSubArray)
+//       setTypes(a->as.arrays[i]);
+//   }
+//   Array *temp = a;
+//   while(temp->hasSubArray){
+//     temp = *temp->as.arrays;
+//   }
+//   a->type = temp->type;
+// }
 
 static bool all(Array * a){
   if(a->type == VAL_NULL)
     return false;
-  Array *res = addConstantArray(initEmptyArray(VAL_DOUBLE)).ptr;
+  //addConstantArray(initEmptyArray(VAL_DOUBLE));
   if(a->hasSubArray){
     for (int i = 0; i < a->count; i++){
       if(!all(a->as.arrays[i]))
@@ -167,16 +167,39 @@ static Array* compareArrays(Array* a, Array *b){
 }
 
 
-static bool binaryOp(char op){
-    Array *b = pop();
-    Array *a = pop();
-    if(!all(compareArrays(getArraySize(a),getArraySize(b)))){
-      runtimeError("array size mismatch for operation %c\n", op);
-      return false;
-    }
+static Array* binaryOp(Array* a, Array* b,char op){
+    Array *c;
+    Array *aSize = getArraySize(a);
+    Array *bSize = getArraySize(b);
     
-    po p = addConstantArray(initEmptyArray(VAL_DOUBLE));
-    for (int i = 0; i < a->count; i++){
+    // if(aSize->count == 1 && aSize->as.doubles[0] == 1
+    // || bSize->count == 1 && bSize->as.doubles[0] == 1){
+    //   if(aSize->count != bSize->count){
+    //     if(aSize->count > bSize->count){
+
+    //     }else{
+
+    //     }
+    //   }
+    //   else{
+
+    //   }
+      
+    // }
+    if(!all(compareArrays(aSize,bSize))){
+      runtimeError("array size mismatch for operation %c\n", op);
+      return addConstantArray(initEmptyArray(VAL_NULL)).ptr;
+    }
+    if(a->hasSubArray && b->hasSubArray){
+      c = initEmptyArray(VAL_UNKNOWN);
+      c->hasSubArray = true;
+      for (int i = 0; i < a->count; i++){
+        createNewVal(c, binaryOp(a->as.arrays[i], b->as.arrays[i], op));
+      }
+      c->type = VAL_DOUBLE;
+    }else{
+      c = initEmptyArray(VAL_DOUBLE);
+      for (int i = 0; i < a->count; i++){
         double value = a->as.doubles[i];
         switch (op)
         {
@@ -188,12 +211,12 @@ static bool binaryOp(char op){
           default:
               break;
         }
-        createNewVal(p.ptr, &value);
+        createNewVal(c, &value);
+      }
     }
-    trashArray(a);
-    trashArray(b);
-    push(p.ptr);
-    return true;
+    //po p = addConstantArray(initEmptyArray(VAL_DOUBLE));
+    
+    return c;
 }
 
 
@@ -325,7 +348,7 @@ static InterpretResult run() {
       }
       case OP_DEFINE_GLOBAL: {
         Key* k = READ_KEY();
-        bool success = tableSet(&vm.globVars, k, peek(0));
+        tableSet(&vm.globVars, k, peek(0));
         //printf("write result: %s\n", success ? "pass" : "fail");
         pop();
         break;
@@ -340,12 +363,11 @@ static InterpretResult run() {
         break;
       }
       case OP_ADD:
-        if(!binaryOp('+'))
-          return INTERPRET_RUNTIME_ERROR;
+        push(binaryOp(pop(), pop(), '+'));
         break;
-      case OP_SUBTRACT: binaryOp('-'); break;
-      case OP_MULTIPLY: binaryOp('*'); break;
-      case OP_DIVIDE:   binaryOp('/'); break;
+      case OP_SUBTRACT: push(binaryOp(pop(),pop(),'-')); break;
+      case OP_MULTIPLY: push(binaryOp(pop(),pop(),'*')); break;
+      case OP_DIVIDE:   push(binaryOp(pop(),pop(),'/')); break;
       case OP_NEGATE:{
         if (peek(0)->type != VAL_DOUBLE) {
           runtimeError("Operand must be a number.");

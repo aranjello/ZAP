@@ -116,8 +116,9 @@ void * createNewVal(Array* array, void * val){
             break;
         default:
             printf("array type not set for return\n");
-            
-    }
+            return NULL;
+            break;
+        }
 }
 
 /*
@@ -209,30 +210,31 @@ void printValue(Array value) {
         if(i>0)
             if(value.type == VAL_DOUBLE)
                 printf(",");
-            switch (value.type)
-            {
-            case VAL_UNKNOWN: 
-                printf("not set");
-                break;
-            case VAL_DOUBLE: 
-                printf("%g",value.as.doubles[i]);
-                break;
-            case VAL_KEY:{
-                    Key k = value.as.keys[i];
-                    for (int j = 0; j < k.length; j++){
-                        if (k.value[j] == '\0')
-                            break;
-                        printf("%c",k.value[j]);
-                    }
-                    break;
+        switch (value.type)
+        {
+        case VAL_UNKNOWN: 
+            printf("not set");
+            break;
+        case VAL_DOUBLE: 
+            printf("%g",value.as.doubles[i]);
+            break;
+        case VAL_KEY:{
+                Key k = value.as.keys[i];
+                for (int j = 0; j < k.length; j++){
+                    if (k.value[j] == '\0')
+                        break;
+                    printf("%c",k.value[j]);
                 }
-            case VAL_FUNC:{
-                printf("<fn %s>", value.as.funcs->name);
-            }
-            default:
-                printf("dont know");
                 break;
             }
+        case VAL_FUNC:{
+            printf("<fn %s>", value.as.funcs->name);
+            break;
+        }
+        default:
+            printf("dont know");
+            break;
+        }
         
     }
     printf("]");

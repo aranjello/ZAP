@@ -4,7 +4,7 @@
 #include "common.h"
 #include "tokenScanner.h"
 
-static int arrayDepth = 0;
+int arrayDepth = 0;
 
 typedef struct {
   const char* start;
@@ -123,8 +123,8 @@ static Token errorToken(const char* message) {
 Skips all whitespace before the start of a token
 */
 static void skipWhitespace() {
-    if(arrayDepth > 0)
-        return;
+    // if(arrayDepth > 0)
+    //     return;
     for (;;)
     {
         char c = peek();
@@ -224,12 +224,13 @@ static Token number() {
   return makeToken(TOKEN_NUMBER);
 }
 
-static Token makeArray(){
-  for (;;){
+static Token arrayInterior(){
+  if(arrayDepth == 0)
+    return errorToken("array interior must be inside []");
+  while(peek() != ']'){
     char c = advance();
-    if(c == ']')
-      return makeToken(TOKEN_ARRAY);
   }
+  return makeToken(TOKEN_ARRAY);
 }
 
 /*
@@ -259,23 +260,25 @@ Token scanToken() {
 
     if (isAtEnd()) return makeToken(TOKEN_EOF);
     char c = advance();
-    if (isAlpha(c)) return identifier();
-    if (isDigit(c)) return number();
+    if (isAlpha(c)) return (arrayDepth == 0)? identifier():arrayInterior();
+    if (isDigit(c)) return arrayInterior();
 
     switch (c) {
         case '(':
         return makeToken(TOKEN_LEFT_PAREN);
         case ')': return makeToken(TOKEN_RIGHT_PAREN);
         case '[':
+          arrayDepth++;
           return makeToken(TOKEN_LEFT_SQUARE);
         case ']':
-            return makeToken(TOKEN_RIGHT_SQUARE);
+          arrayDepth--;
+          return makeToken(TOKEN_RIGHT_SQUARE);
         case '{': return makeToken(TOKEN_LEFT_BRACE);
         case '}': return makeToken(TOKEN_RIGHT_BRACE);
         case ';': return makeToken(TOKEN_SEMI);
         case ',': return makeToken(TOKEN_COMMA);
-        case '.': return makeToken(TOKEN_DOT);
-        case '-': return makeToken(TOKEN_MINUS);
+        case '.': return (arrayDepth == 0)?makeToken(TOKEN_DOT):arrayInterior();
+        case '-': return (arrayDepth == 0)?makeToken(TOKEN_MINUS):arrayInterior();
         case '#': return makeToken(TOKEN_POUND);
         case '+': return makeToken(TOKEN_PLUS);
         case '/': return makeToken(TOKEN_FORWARD_SLASH);

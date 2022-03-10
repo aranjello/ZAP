@@ -252,7 +252,6 @@ static uint8_t parseVariable(const char* errorMessage) {
   uint32_t hash = hashString(parser.previous.start, parser.previous.length);
   po p = tableFindKey(&currVm->globalInterned,parser.previous.start, parser.previous.length, hash);
   if(p.ptr == NULL){
-    Key k;
     p = addGlobKey(parser.previous.start,parser.previous.length);
     tableSet(&currVm->globalInterned, p.ptr, NULL);
   }
@@ -560,46 +559,42 @@ static bool isDigit(char c) {
 
 
 static void parseArray(bool canAssign){
-  const char *arr = parser.previous.start+1;
+  const char *arr = parser.previous.start;
   char *valHolder;
-  if(isDigit(arr[0])){
-    if(ta.count == 1){
-      freeArray(ta.values[0]);
-      ta.values[0] = (Array*)initEmptyArray(VAL_DOUBLE);
-    }else{
-      printf("attempt ta.count = %d cuurdepth = %d\n",ta.count,currDepth);
-      freeArray(ta.values[ta.count-1]);
-      ta.values[ta.count - currDepth-1]->count--;
-      ta.values[ta.count-1] = createNewVal(ta.values[ta.count - currDepth - 1], initEmptyArray(VAL_DOUBLE));
-      //printf("t atype is %d\n", (*(Array*)createNewVal(ta.values[ta.count - currDepth - 1], initEmptyArray(VAL_DOUBLE))).type);
+  if(isDigit(arr[0])||arr[0]=='-'||arr[0]=='.'){
+    if(currArray->count == 0){
+      currArray->type = VAL_DOUBLE;
     }
-    printf("done ta val is %s\n",ta.values[ta.count-1] == NULL?"bad":"good");
-    double val = strtod(arr, &valHolder);
-    printf("done ta type is %s and val is %g\n",ta.values[ta.count-1]->type==VAL_DOUBLE?"good":"bad",val);
-    createNewVal(ta.values[ta.count - 1], &val);
-    printf("done\n");
-    while (valHolder[0] != ']')
+
+    if(currArray->type != VAL_DOUBLE){
+      errorAt(&parser.previous,"array is incorrect type for number");
+      return;
+    }
+    double val = strtod(parser.previous.start, &valHolder);
+    createNewVal(currArray,&val);
+    while (valHolder != parser.previous.start+parser.previous.length)
     {
       valHolder++;
       val = strtod(valHolder, &valHolder);
-      createNewVal(ta.values[ta.count - 1], &val);
-    };
-    
-  }else if(isAlpha(arr[0])){
-    if(ta.count == 1){
-      freeArray(ta.values[0]);
-      ta.values[0] = (Array*)initEmptyArray(VAL_CHAR);
-    }else{
-      freeArray(ta.values[ta.count-1]);
-      ta.values[ta.count-1] = createNewVal(ta.values[ta.count - currDepth - 2], initEmptyArray(VAL_CHAR));
+      createNewVal(currArray,&val);
     }
-    while (*arr != ']')
+  }else if(isAlpha(arr[0])){
+    if(currArray->count == 0){
+      currArray->type = VAL_CHAR;
+    }
+
+    if(currArray->type != VAL_CHAR){
+      errorAt(&parser.previous,"array is incorrect type for character");
+      return;
+    }
+    while (arr != parser.previous.start+parser.previous.length)
     {
-      createNewVal(ta.values[ta.count - 1], (char *)arr);
+      createNewVal(currArray, &arr[0]);
       arr++;
     }
-    createNewVal(ta.values[ta.count - 1], '\0');
-    ta.values[ta.count-1]->hash = hashString(ta.values[ta.count-1]->as.chars,ta.values[ta.count-1]->count);
+    char close = '\0';
+    createNewVal(currArray, &close);
+    currArray->hash = hashString(currArray->as.chars,currArray->count);
   }
   if(ta.count < 2)
     emitArray();
@@ -614,6 +609,7 @@ static void lookup(bool canAssign){
 
 static void unary(bool canAssign) {
   TokenType operatorType = parser.previous.type;
+
 
   // Compile the operand.
   parsePrecedence(PREC_UNARY);
@@ -669,10 +665,6 @@ static void namedVariable(Token name, bool canAssign) {
   } else {
     emitBytes(getOp, p.offset);
   }
-}
-
-static void reassignVar(){
-
 }
 
 static void variable(bool canAssign) {
@@ -749,10 +741,10 @@ static void chain(bool canAssign){
   parsePrecedence(PREC_ASSIGNMENT);
 }
 
-static void chainChar(bool canAssign){
-  character(canAssign);
-  chain(canAssign);
-}
+// static void chainChar(bool canAssign){
+//   character(canAssign);
+//   chain(canAssign);
+// }
 
 static void getDims(bool canAssign){
   parsePrecedence(PREC_UNARY);
