@@ -19,13 +19,10 @@ typedef struct VM{
   uint8_t* ip;
   Array* stack[STACK_MAX];
   Array** stackTop;
-  // Table globalInterned;
-  // Array globKeys;
-  // Table globVars;
-  // int localsCount;
-  // int localsCapacity;
-  // localSpace *localVars;
-  // ArrayArray activeArrays;
+  Table globalInterned;
+  Array globKeys;
+  Table globVars;
+  ArrayArray constantArrays;
 } VM;
 
 typedef enum {
@@ -40,10 +37,10 @@ InterpretResult interpret(const char* source);
 void push(Array* value);
 Array* pop();
 
-// po createLocalSpace();
-// bool internLocalString(localSpace *local, const char * value, int length);
-// po addLocalKey(localSpace *local, const char * value, int length);
-// bool writeLocalVar(localSpace *local, Key* k, Array* a);
+bool internGlobString(const char * value, int length);
+po addGlobKey(const char * value, int length);
+bool writeGlobVar(Key* k, Array* a);
+po addConstantArray(Array array);
 
 
 

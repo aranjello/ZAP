@@ -7,7 +7,7 @@
 #include "debug.h"
 #include "compiler.h"
 
-VM vm; 
+VM vm;
 
 static void resetStack() {
   vm.stackTop = vm.stack;
@@ -28,20 +28,18 @@ static void runtimeError(const char* format, ...) {
 
 void initVM() {
     resetStack();
-    // initTable(&vm.globalInterned);
-    // initTable(&vm.globVars);
-    // vm.globKeys = *(Array*)initEmptyArray(VAL_KEY);
-    // vm.localsCount = 0;
-    // vm.localsCapacity = 0;
-    // vm.localVars = NULL;
-    // initValueArray(&vm.activeArrays);
+    vm.chunk = NULL;
+    initTable(&vm.globalInterned);
+    initTable(&vm.globVars);
+    vm.globKeys = *(Array*)initEmptyArray(VAL_KEY);
+    initValueArray(&vm.constantArrays);
 }
 
 void freeVM() {
-  // freeTable(&vm.globVars);
-  // freeTable(&vm.globalInterned);
-  // freeValueArray(&vm.activeArrays);
-  // FREE_ARRAY(Key, vm.globKeys.as.keys,vm.globKeys.capacity);
+  freeTable(&vm.globVars);
+  freeTable(&vm.globalInterned);
+  freeValueArray(&vm.constantArrays);
+  FREE_ARRAY(Key, vm.globKeys.as.keys,vm.globKeys.capacity);
   //mem for any local vars shoudl be cleared already
 }
 
@@ -55,50 +53,46 @@ Array* pop() {
   return *vm.stackTop;
 }
 
-// bool internGlobString(const char * value, int length){
-//   return tableSet(&vm.globalInterned, allocateNewKey(&vm.globKeys,value, length).ptr, NULL);
-// }
 
-// po addGlobKey(const char * value, int length){
-//   return allocateNewKey(&vm.globKeys,value, length);
-// }
+static uint32_t hashString(const char* key, int length) {
+  uint32_t hash = 2166136261u;
+  for (int i = 0; i < length; i++) {
+    hash ^= (uint8_t)key[i];
+    hash *= 16777619;
+  }
+  return hash;
+}
 
-// bool writeGlobalVar(Key* k, Array* a){
-//   return tableSet(&vm.globVars, k, a);
-// }
+static po allocateNewKey(Array* keyArray,const char * value, int length){
+  po p;
+  Key key;
+  key.value = malloc(sizeof(char) * length);
+  memcpy(key.value, value, length);
+  key.hash = hashString(value,length);
+  key.length = length;
+  p.ptr = createNewVal(keyArray,&key);
+  p.offset = keyArray->count-1;
+  return p;
+}
 
-// po createLocalSpace(VM *vm){
-//    if (vm->localsCapacity < vm->localsCount + 1) {
-//         int oldCapacity = vm->localsCapacity;
-//         vm->localsCapacity = GROW_CAPACITY(oldCapacity);
-//         vm->localVars = GROW_ARRAY(localSpace, vm->localVars,
-//                                     oldCapacity, vm->localsCapacity);
-//    }
-//    po p;
-//    p.ptr = &vm->localVars[vm->localsCount];
-//    p.offset = vm->localsCount;
-//    vm->localsCount++;
-// }
+bool internGlobString(const char * value, int length){
+  return tableSet(&vm.globalInterned, allocateNewKey(&vm.globKeys,value, length).ptr, NULL);
+}
 
-// bool internLocalString(localSpace *local, const char * value, int length){
+po addGlobKey(const char * value, int length){
+  return allocateNewKey(&vm.globKeys,value, length);
+}
 
-//   return tableSet(&local->localInterned, allocateNewKey(&local->localKeys, value, length).ptr, NULL);
-// }
+bool writeGlobalVar(Key* k, Array* a){
+  return tableSet(&vm.globVars, k, a);
+}
 
-// po addLocalKey(localSpace *local, const char * value, int length){
-//   return allocateNewKey(&local->localKeys, value, length);
-// }
-
-// bool writeLocalVar(localSpace *local, Key* k, Array* a){
-//   return tableSet(&local->localVars, k, a);
-// }
-
-// po addArray(Array array){
-//   po p;
-//   p.ptr = createValueArray(&vm.activeArrays,&array);
-//   p.offset = vm.activeArrays.count - 1;
-//   return p;
-// }
+po addConstantArray(Array array){
+  po p;
+  p.ptr = createValueArray(&vm.constantArrays,&array);
+  p.offset = vm.constantArrays.count - 1;
+  return p;
+}
 
 
 static Array* peek(int distance) {
@@ -120,7 +114,7 @@ static void setTypes(Array * a){
 static bool all(Array * a){
   if(a->type == VAL_NULL)
     return false;
-  Array *res = addArray(*initEmptyArray(VAL_DOUBLE)).ptr;
+  Array *res = addConstantArray(*initEmptyArray(VAL_DOUBLE)).ptr;
   if(a->hasSubArray){
     for (int i = 0; i < a->count; i++){
       if(!all(&a->as.arrays[i]))
@@ -137,7 +131,7 @@ static bool all(Array * a){
 
 static Array* getArraySize(Array * a){
   Array c = *(Array*)initEmptyArray(VAL_DOUBLE);
-  po p = addArray(c);
+  po p = addConstantArray(c);
   Array *temp = a;
   while(temp->hasSubArray){
     double b = (double)temp->count;
@@ -154,16 +148,16 @@ static Array* compareArrays(Array* a, Array *b){
   Array *tempa = a;
   Array *tempb = b;
   if(tempa->hasSubArray && tempb->hasSubArray){
-      res = addArray(*initEmptyArray(VAL_UNKNOWN)).ptr;
+      res = addConstantArray(*initEmptyArray(VAL_UNKNOWN)).ptr;
       res->hasSubArray = true;
       for (int i = 0; i < a->count; i++){
         createNewVal(res, compareArrays(&tempa->as.arrays[i], &tempb->as.arrays[i]));
       }
       res->type = VAL_DOUBLE;
   }else if(tempa->hasSubArray || tempb->hasSubArray){
-    res = addArray(*initEmptyArray(VAL_NULL)).ptr;
+    res = addConstantArray(*initEmptyArray(VAL_NULL)).ptr;
   }else{
-    res = addArray(*initEmptyArray(VAL_DOUBLE)).ptr;
+    res = addConstantArray(*initEmptyArray(VAL_DOUBLE)).ptr;
     for (int i = 0; i < a->count; i++){
       double result = (double)(a->as.doubles[i] == b->as.doubles[i]);
       createNewVal(res,&result);
@@ -183,9 +177,13 @@ static bool binaryOp(char op){
       runtimeError("array size mismatch for operation %c\n", op);
       return false;
     }
-    po p = addArray(c);
+
+    
+    po p = addConstantArray(c);
     for (int i = 0; i < a->count; i++){
+      printf("a count %d i count %d\n", a->count, i);
         double value = a->as.doubles[i];
+        printf("value is %g\n", value);
         switch (op)
         {
           case '+': value += b->as.doubles[i]; break;
@@ -200,9 +198,11 @@ static bool binaryOp(char op){
         createNewVal(p.ptr, &value);
         
     }
+    printf("here");
     trashArray(a);
     trashArray(b);
     push(p.ptr);
+    printf("here");
     return true;
 }
 
@@ -212,7 +212,7 @@ static void getArrayVal(){
   Array* val = pop();
   Array c = *(Array*)initEmptyArray(VAL_DOUBLE);
  
-  po p = addArray(c);
+  po p = addConstantArray(c);
 
   //printf("creating new array index is %d val ther is %g\n",ind,val->as.doubles[ind]);
   for (int i = 0; i < indicies->count; i++){
@@ -243,10 +243,10 @@ static bool isFalsey(Array array){
 
 static InterpretResult run() {
 #define READ_BYTE() (*vm.ip++)
-#define READ_CONSTANT() &(vm.chunk->data.values[READ_BYTE()])
+#define READ_CONSTANT() &(vm.constantArrays.values[READ_BYTE()])
 #define READ_SHORT() \
     (vm.ip += 2, (uint16_t)((vm.ip[-2] << 8) | vm.ip[-1]))
-#define READ_KEY() &(vm.chunk->Keys.as.keys[READ_BYTE()]);
+#define READ_KEY() &(vm.globKeys.as.keys[READ_BYTE()]);
     for (;;)
     {
     #ifdef DEBUG_TRACE_EXECUTION
@@ -259,7 +259,7 @@ static InterpretResult run() {
     }
     printf(" ]");
     printf("\n");
-        disassembleInstruction(vm.chunk,
+        disassembleInstruction(&vm,vm.chunk,
                             (int)(vm.ip - vm.chunk->code));
     #endif
     uint8_t instruction;
@@ -325,7 +325,7 @@ static InterpretResult run() {
       case OP_GET_GLOBAL: {
         Key* name = READ_KEY();
         
-        Array* value = tableGet(&vm.chunk->vars, name);
+        Array* value = tableGet(&vm.globVars, name);
         if (value == NULL) {
           runtimeError("Undefined variable '%s'.", name->value);
           return INTERPRET_RUNTIME_ERROR;
@@ -335,15 +335,15 @@ static InterpretResult run() {
       }
       case OP_DEFINE_GLOBAL: {
         Key* k = READ_KEY();
-        bool success = tableSet(&vm.chunk->vars, k, peek(0));
+        bool success = tableSet(&vm.globVars, k, peek(0));
         //printf("write result: %s\n", success ? "pass" : "fail");
         pop();
         break;
       }
       case OP_SET_GLOBAL: {
         Key* key = READ_KEY();
-        if (tableSet(&vm.chunk->vars, key, peek(0))) {
-          tableDelete(&vm.chunk->vars, key); 
+        if (tableSet(&vm.globVars, key, peek(0))) {
+          tableDelete(&vm.globVars, key); 
           runtimeError("Undefined variable '%s'.", key->value);
           return INTERPRET_RUNTIME_ERROR;
         }
@@ -412,8 +412,8 @@ static InterpretResult run() {
 InterpretResult interpret(const char* source) {
   Chunk chunk;
   initChunk(&chunk);
-
-  if (!compile(source, &chunk)) {
+  
+  if (!compile(&vm,source, &chunk)) {
     freeChunk(&chunk);
     return INTERPRET_COMPILE_ERROR;
   }

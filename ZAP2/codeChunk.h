@@ -55,18 +55,11 @@ typedef struct Chunk{
     int capacity;
     uint8_t* code;
     int* lines;
-    Table interned;
-    Array Keys;
-    Table vars;
-    ArrayArray data;
 } Chunk;
 
 void initChunk(Chunk* chunk);
 void freeChunk(Chunk* chunk);
 void writeChunk(Chunk* chunk, uint8_t byte, int line);
-bool internString(Chunk* c,const char * value, int length);
-po addKey(Chunk* c,const char * value, int length);
-bool writeVar(Chunk* c,Key* k, Array* a);
-po addArray(Chunk* c,Array array);
+
 
 #endif

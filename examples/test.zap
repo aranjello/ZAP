@@ -1,13 +1,12 @@
-var a = [5,6,6,7,8,9,4,456,345,0]
+var apple = [1,2,3]
 
-!a
+{
+    var banana = [4,5,6]
+    
+    var carrot = banana + apple
 
-a = a + a
-a = a + a
-a = a + a
+    !carrot + banana
+}
 
-!a
-
-!&a
-
-!#a
+!apple
+!banana
