@@ -287,6 +287,7 @@ static void binary(bool canAssign) {
     case TOKEN_STAR:          emitByte(OP_MULTIPLY); break;
     case TOKEN_FORWARD_SLASH: emitByte(OP_DIVIDE); break;
     case TOKEN_EQUAL_EQUAL: emitByte(OP_COMPARE); break;
+    case TOKEN_GREATER: emitByte(OP_GREATER); break;
     case TOKEN_DOT: emitByte(OP_DOT_PROD); break;
 
     default: return; // Unreachable.
@@ -303,8 +304,9 @@ static void varDeclaration() {
   if (match(TOKEN_EQUAL)) {
     expression();
   } else {
-    Array *a = (Array*)initEmptyArray(VAL_NULL);
-    int constant = addConstantArray(a).offset;
+    po p = addConstantArray(initEmptyArray(VAL_DOUBLE));
+    int constant = p.offset;
+    ((Array*)p.ptr)->dims = initEmptyArray(VAL_DOUBLE);
     if (constant > UINT8_MAX) {
       error("Too many constants in one chunk.");
       return;
@@ -441,13 +443,14 @@ static void forStatement() {
     int incrementStart = currentChunk()->count;
     expression();
     emitByte(OP_POP);
-    consume(TOKEN_SEMI, "Expect ')' after for clauses.");
+    consume(TOKEN_SEMI, "Expect ';' after for clauses.");
 
     emitLoop(loopStart);
     loopStart = incrementStart;
     patchJump(bodyJump);
   }
   statement();
+  consume(TOKEN_SEMI, "Expect ';' after for loop body.");
   emitLoop(loopStart);
   if (exitJump != -1) {
     patchJump(exitJump);
@@ -587,7 +590,7 @@ static void parseArray(bool canAssign){
         currArray->dims->as.doubles[currDepth-1] += 1;
     }
   }else if(isAlpha(arr[0])){
-    if(currArray->count == 0){
+    if(currArray->dims->as.doubles[currDepth-1] == 0){
       currArray->type = VAL_CHAR;
     }
 
@@ -595,10 +598,14 @@ static void parseArray(bool canAssign){
       errorAt(&parser.previous,"array is incorrect type for character");
       return;
     }
+    if(!parseSet)
+      currArray->dims->as.doubles[currDepth-1] += 1;
     while (arr != parser.previous.start+parser.previous.length)
     {
       createNewVal(currArray, &arr[0]);
       arr++;
+      if(!parseSet)
+        currArray->dims->as.doubles[currDepth-1] += 1;
     }
     char close = '\0';
     createNewVal(currArray, &close);
@@ -794,7 +801,7 @@ ParseRule rules[] = {
     [TOKEN_BANG_EQUAL] = {NULL, NULL, PREC_NONE},
     [TOKEN_EQUAL] = {NULL, NULL, PREC_NONE},
     [TOKEN_EQUAL_EQUAL] = {NULL, binary, PREC_ASSIGNMENT},
-    [TOKEN_GREATER] = {NULL, NULL, PREC_NONE},
+    [TOKEN_GREATER] = {NULL, binary, PREC_ASSIGNMENT},
     [TOKEN_GREATER_EQUAL] = {NULL, NULL, PREC_NONE},
     [TOKEN_LESS] = {NULL, NULL, PREC_NONE},
     [TOKEN_LESS_EQUAL] = {NULL, NULL, PREC_NONE},

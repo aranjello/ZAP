@@ -199,6 +199,9 @@ static int printSub(Array value, double count, int offset){
                 case VAL_DOUBLE:
                     printf("%g", value.as.doubles[i+offset]);
                     break;
+                case VAL_CHAR:
+                    printf("%c", value.as.chars[i+offset]);
+                    break;
                 case VAL_KEY:
                 {
                     Key k = value.as.keys[i];

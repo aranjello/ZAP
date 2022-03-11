@@ -139,6 +139,8 @@ int disassembleInstruction(VM* vm,Chunk* chunk, int offset) {
       return simpleInstruction("OP_GET_DIMS", offset);
     case OP_COMPARE:
       return simpleInstruction("OP_COMPARE", offset);
+    case OP_GREATER:
+      return simpleInstruction("OP_GREATER", offset);
     case OP_ALL:
       return simpleInstruction("OP_ALL", offset);
     case OP_RETURN:

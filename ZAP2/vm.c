@@ -338,6 +338,19 @@ static InterpretResult run() {
       push(res);
       break;
     }
+    case OP_GREATER:{
+      Array* res = addConstantArray(initEmptyArray(VAL_DOUBLE)).ptr;
+      res->dims = initEmptyArray(VAL_DOUBLE);
+      
+      double val = 1;
+      createNewVal(res->dims,&val);
+      if(pop()->as.doubles[0] > pop()->as.doubles[0]){
+        val = 0;
+      }
+      createNewVal(res,&val);
+      push(res);
+      break;
+    }
     case OP_JUMP_IF_FALSE: {
         uint16_t offset = READ_SHORT();
         if (isFalsey(*peek(0))) vm.ip += offset;
