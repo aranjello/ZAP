@@ -238,6 +238,12 @@ prints the values out of an array
 @param value The array to print from
 */
 void printValue(Array value) {
+    // printf("value dims: ");
+    // for(int i = 0; i < value.dims->count; i++){
+    //     if(i>0)
+    //         printf(",");
+    //     printf("%g",value.dims->as.doubles[i]);
+    // }
     printf("[");
     printSub(value, 0,0);
     printf("]");

@@ -75,7 +75,6 @@ Starts the program, can take optional arguments to specify a file to read.
 If no file is provided a REPL is started.
 */
 int main(int argc, const char* argv[]) {
-  printf("starting\n");
   initVM();
   if (argc == 1) {
     repl();

@@ -22,6 +22,7 @@ typedef enum
     OP_SUBTRACT,
     OP_MULTIPLY,
     OP_DIVIDE,
+    OP_DOT_PROD,
     //loop ops
     OP_LOOP,
     OP_JUMP_IF_FALSE,

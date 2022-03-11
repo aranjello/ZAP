@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 
 #include "common.h"
 #include "compiler.h"
@@ -286,6 +287,7 @@ static void binary(bool canAssign) {
     case TOKEN_STAR:          emitByte(OP_MULTIPLY); break;
     case TOKEN_FORWARD_SLASH: emitByte(OP_DIVIDE); break;
     case TOKEN_EQUAL_EQUAL: emitByte(OP_COMPARE); break;
+    case TOKEN_DOT: emitByte(OP_DOT_PROD); break;
 
     default: return; // Unreachable.
   }
@@ -564,7 +566,6 @@ static void parseArray(bool canAssign){
   const char *arr = parser.previous.start;
   char *valHolder;
   if(isDigit(arr[0])||arr[0]=='-'||arr[0]=='.'){
-    printf("creating array\n");
     if(currArray->dims->as.doubles[currDepth-1] == 0){
       currArray->type = VAL_DOUBLE;
     }
@@ -738,12 +739,12 @@ static void closeArray(bool canAssign){
   // if(ta.count >= 2)
   //    currArray = ta.values[ta.count - 2];
   // ta.count--;
-  printf("curr %d deep %d", currDepth, shallowestClosedDepth);
   shallowestClosedDepth = currDepth < shallowestClosedDepth ? currDepth : shallowestClosedDepth;
   currDepth--;
   if(currDepth == 0){
     //setTypes(currArray);
     parseSet = false;
+    shallowestClosedDepth = INT_MAX;
     emitArray();
   }
 }
@@ -782,7 +783,7 @@ ParseRule rules[] = {
     [TOKEN_RIGHT_SQUARE] = {NULL, closeArray, PREC_ASSIGNMENT},
     [TOKEN_RIGHT_PAREN] = {NULL, NULL, PREC_NONE},
     [TOKEN_COMMA] = {NULL, chain, PREC_ASSIGNMENT},
-    [TOKEN_DOT] = {NULL, NULL, PREC_NONE},
+    [TOKEN_DOT] = {NULL, binary, PREC_FACTOR},
     [TOKEN_MINUS] = {unary, binary, PREC_TERM},
     [TOKEN_PLUS] = {unary, binary, PREC_TERM},
     [TOKEN_SEMI] = {NULL, NULL, PREC_NONE},

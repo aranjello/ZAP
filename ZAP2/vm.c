@@ -164,8 +164,8 @@ static Array* getArraySize(Array * a){
 static Array* compareArrays(Array* a, Array *b){
   Array *res = addConstantArray(initEmptyArray(VAL_DOUBLE)).ptr;
   res->dims = initEmptyArray(VAL_DOUBLE);
-  for (int i = 0; i < a->dims->count; i++){
-    createNewVal(res->dims, &a->dims->as.doubles[i]);
+  for (int i = 0; i < a->count; i++){
+    createNewVal(res->dims, &a->as.doubles[i]);
   }
   for (int i = 0; i < a->count; i++){
     double result = a->as.doubles[i] == b->as.doubles[i];
@@ -193,41 +193,43 @@ static Array* compareArrays(Array* a, Array *b){
 
 
 static Array* binaryOp(Array* a, Array* b,char op){
-    Array *aSize = getArraySize(a);
-    Array *bSize = getArraySize(b);
-    if(!all(compareArrays(aSize,bSize))){
-      runtimeError("array size mismatch for operation %c\n", op);
-      return addConstantArray(initEmptyArray(VAL_NULL)).ptr;
+    double aDeep = a->dims->as.doubles[a->dims->count-1];
+    double bDeep = b->dims->as.doubles[b->dims->count-1];
+    // if(!all(compareArrays(a->dims,b->dims))){
+    //   runtimeError("array size mismatch for operation %c\n", op);
+    //   return addConstantArray(initEmptyArray(VAL_NULL)).ptr;
+    // }
+    Array* top = a;
+    Array* bottom = b;
+    if(b->dims->count > a->dims->count){
+      top = b;
+      bottom = a;
     }
     Array *c = addConstantArray(initEmptyArray(VAL_DOUBLE)).ptr;
     c->dims = initEmptyArray(VAL_DOUBLE);
-    for (int i = 0; i < a->dims->count; i++){
-      createNewVal(c->dims, &a->dims->as.doubles[i]);
+    for (int i = 0; i < top->dims->count; i++){
+      createNewVal(c->dims, &top->dims->as.doubles[i]);
     }
-    // if(a->hasSubArray && b->hasSubArray){
-    //   c = initEmptyArray(VAL_UNKNOWN);
-    //   c->hasSubArray = true;
-    //   for (int i = 0; i < a->count; i++){
-    //     createNewVal(c, binaryOp(a->as.arrays[i], b->as.arrays[i], op));
-    //   }
-    //   c->type = VAL_DOUBLE;
-    // }else{
-      for (int i = 0; i < a->count; i++){
-        double value = a->as.doubles[i];
+
+    double deepestDim = bottom->dims->as.doubles[bottom->dims->count-1];
+    for (int i = 0; i < top->count;){
+      for(int j = 0; j < deepestDim; j++){
+        double value = top->as.doubles[i];
         switch (op)
         {
-          case '+': value += b->as.doubles[i]; break;
-          case '-': value -= b->as.doubles[i]; break;
-          case '*': value *= b->as.doubles[i]; break;
-          case '/': value /= b->as.doubles[i]; break;
+          case '+': value += bottom->as.doubles[j]; break;
+          case '-': value -= bottom->as.doubles[j]; break;
+          case '*': value *= bottom->as.doubles[j]; break;
+          case '/': value /= bottom->as.doubles[j]; break;
           
           default:
               break;
         }
         createNewVal(c, &value);
+        i++;
       }
-    // }
-    
+      
+    }
     return c;
 }
 
@@ -264,6 +266,27 @@ static bool isFalsey(Array array){
     return array.as.doubles[0] == 0;
   }
   return false;
+}
+
+static Array* sumDown(Array* arr, int depth){
+  Array* res = addConstantArray(initEmptyArray(VAL_DOUBLE)).ptr;
+  res->dims = initEmptyArray(VAL_DOUBLE);
+  for (int i = 0; i < arr->dims->count; i++){
+    createNewVal(res->dims, &arr->dims->as.doubles[i]);
+  }
+  // if(arr->as.doubles[depth+1] < 1)
+  //   arr->as.doubles[depth+1] = 1;
+  for(int i = 0; i < arr->count; i += arr->dims->as.doubles[depth]){
+    double new = 0;
+    
+    for(int j = 0;j < arr->dims->as.doubles[depth]; j++){
+      new += arr->as.doubles[i+j];
+    }
+    createNewVal(res,&new);
+  }
+  
+  res->dims->count--;
+  return res;
 }
 
 static InterpretResult run() {
@@ -344,6 +367,12 @@ static InterpretResult run() {
         a->as.doubles[0] = val;
         a->count = 1;
         push(a);
+        break;
+      }
+      case OP_DOT_PROD:{
+        Array* multRes = binaryOp(pop(),pop(),'*');
+        Array* dotRes = sumDown(multRes,1);
+        push(dotRes);
         break;
       }
       case OP_POP:      trashArray(pop()); break;

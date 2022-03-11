@@ -109,6 +109,8 @@ int disassembleInstruction(VM* vm,Chunk* chunk, int offset) {
       return simpleInstruction("OP_DIVIDE", offset);
     case OP_NEGATE:
       return simpleInstruction("OP_NEGATE", offset);
+    case OP_DOT_PROD:
+      return simpleInstruction("OP_DOT_PROD", offset);
     //loop ops
     case OP_LOOP:
       return jumpInstruction("OP_LOOP", -1, chunk, offset);
