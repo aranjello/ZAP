@@ -1,24 +1,26 @@
 var input = [[1,0,1]
             ,[1,1,0]
-            ,[0,1,0]
-            ,[0,0,0]]
+            ,[0,1,1]
+            ,[0,0,1]]
 
 var output =[1,1,0,0]
 var weights = [.35,.45,.11]
 
-var tout
-
-??var count = [500];count > [0]; count = count - [1];
-!count;
+var tout = [0]
+var error = [0]
+??var count = [5];count > [0]; count = count - [1];
+//!count
+//![Tout is]
+//!tout
 tout = input.weights
+error = tout - output
+![Error is]
+!error
+!error.[1,1,1]
+weights = weights-error
 
-![Tout is]
-!tout
+![Weights are]
+!weights;
 
-//error = tout - output
-
-//weights = weights+input.(error*tout)
-
-//![Weights are]
-//!weights
+![0,0,1].weights
 

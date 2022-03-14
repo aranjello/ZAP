@@ -5,24 +5,6 @@
 
 struct Chunk;
 
-typedef struct Function{
-  int arity;
-  struct Chunk* chunk;
-  int nameLength;
-  char* name;
-} Function;
-
-typedef struct Key{
-    char* value;
-    int length;
-    int loc;
-    uint32_t hash;
-} Key;
-
-typedef struct Evaluator{
-  void *evaluator;
-} Evaluator;
-
 typedef struct po{
   void *ptr;
   int offset;
@@ -51,13 +33,36 @@ typedef enum {
   VAL_UNKNOWN,
 } ValueType;
 
+typedef struct Function{
+  int arity;
+  struct Chunk* chunk;
+  int nameLength;
+  char* name;
+} Function;
+
+typedef struct Key{
+    char* value;
+    int length;
+    int loc;
+    uint32_t hash;
+} Key;
+
+typedef struct Evaluator{
+  void *evaluator;
+} Evaluator;
+
+typedef struct arrDimensions{
+  int count;
+  int capacity;
+  int * values;
+} arrDimensions;
+
 typedef struct Array{
   int capacity;
   int count;
-  struct Array* dims;
+  arrDimensions dims;
   uint32_t hash;
   ValueType type;
-  // bool hasSubArray;
   bool garbage;
   union{
     int           *ints;
@@ -68,8 +73,6 @@ typedef struct Array{
     Function      *funcs;
     Key           *keys;
     Evaluator     *evals;
-    //struct Chunk  *chunks;
-    //struct Array  **arrays;
   } as;
 } Array;
 
@@ -81,7 +84,8 @@ typedef struct ArrayArray{
 
 Array * initEmptyArray(ValueType t);
 Array * createArray(ValueType t, int val,...);
-void * createNewVal(Array* array,void * val);
+void * createNewVal(Array* array,void * val,bool changeDims);
+void changeArrayDims(Array* arr,int change, int dimDepth);
 void trashArray(Array *array);
 void initValueArray(ArrayArray* array);
 void * createValueArray(ArrayArray* array , Array * arr);

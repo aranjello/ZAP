@@ -5,7 +5,20 @@
 #include "value.h"
 #include "codeChunk.h"
 
+/*
+Initialize a arrDimensions array
+@param dims A pointer to the arrDimensions array to initialize
+*/
+static void initDimArray(arrDimensions* dims){
+    dims->count = 0;
+    dims->capacity = 0;
+    dims->values = NULL;
+}
 
+/*
+Creates a new empty array with the given type and returns a pointer to it
+@param t The value type for the new array
+*/
 Array* initEmptyArray(ValueType t){
     Array* array = malloc(sizeof(Array));
     array->capacity = 0;
@@ -13,9 +26,9 @@ Array* initEmptyArray(ValueType t){
     array->hash = 0;
     array->type = t;
     array->garbage = false;
-    //setting any as value to NULL clears the array values as all as values point to the same initial memeory position
+    //setting any as value to NULL clears the array values as all as values point to the same initial memeory position due to the union
     array->as.doubles = NULL;
-    array->dims = NULL;
+    initDimArray(&array->dims);
     return array;
 }
 
@@ -26,20 +39,20 @@ creates and intializes a new array
 @param val The number of values to be added to the array
 @param ... Pointers to the values to be put in the array
 */
-Array *createArray(ValueType t,int val,...){
+Array *createArray(ValueType t,int numVals,...){
     va_list ptr;
-    va_start(ptr, val);
+    va_start(ptr, numVals);
     Array* array = malloc(sizeof(Array));
     *array = *(Array*)initEmptyArray(t);
     //array->hasSubArray = hasSub;
-    for (int i = 0; i < val; i++){
+    for (int i = 0; i < numVals; i++){
         va_arg(ptr, void *);
         switch(t){
             case VAL_DOUBLE:
-                createNewVal(array,ptr);
+                createNewVal(array,ptr,true);
                 break;
             case VAL_CHAR:
-                createNewVal(array,ptr);
+                createNewVal(array,ptr,true);
                 break;
         }
     }
@@ -62,12 +75,31 @@ void freeArray(Array* array){
         //free(array);
 }
 
+void changeArrayDims(Array* arr,int change, int dimDepth){
+    //for unitialized dims
+    if(dimDepth < 0)
+        dimDepth = 0;
+    if(dimDepth+1 > arr->dims.capacity){
+        int oldCapacity = arr->dims.capacity;
+        arr->dims.capacity = GROW_CAPACITY(dimDepth);
+        arr->dims.values = GROW_ARRAY(int,arr->dims.values,oldCapacity,arr->dims.capacity);
+    }
+    while(arr->dims.count < dimDepth+1){
+        arr->dims.values[arr->dims.count] = 0;
+        arr->dims.count++;
+    }
+    
+    arr->dims.values[dimDepth]+= change;
+}
+
 /*
 Writes a new value to an already existing array
 @param array The array to be added to
 @param val The value to be added
 */
-void * createNewVal(Array* array, void * val){
+void * createNewVal(Array* array, void * val, bool changeDims){
+    if(changeDims)
+        changeArrayDims(array,1,array->dims.count-1);
     if (array->capacity < array->count + 1) {
         int oldCapacity = array->capacity;
         array->capacity = GROW_CAPACITY(oldCapacity);
@@ -183,9 +215,9 @@ static int printSub(Array value, double count, int offset){
     // for (int i = 0; i < value.dims->count; i++){
     //     printf("%g", value.dims->as.doubles[i]);
     // }
-        if (value.dims->count == count + 1)
+        if (value.dims.count == count + 1)
         {
-            for (int i = 0; i < value.dims->as.doubles[(int)count]; i++)
+            for (int i = 0; i < value.dims.values[(int)count]; i++)
             {
                 
                 if (i > 0)
@@ -223,9 +255,9 @@ static int printSub(Array value, double count, int offset){
             }
             
         }
-        offset = value.dims->as.doubles[(int)count];
+        offset = value.dims.values[(int)count];
     }else{
-        for (int i = 0; i < value.dims->as.doubles[(int)count];i++){
+        for (int i = 0; i < value.dims.values[(int)count];i++){
             if(i > 0)
                 printf(",");
             printf("[");
@@ -248,7 +280,7 @@ void printValue(Array value) {
     //     printf("%g",value.dims->as.doubles[i]);
     // }
     printf("[");
-    printSub(value, 0,0);
+    printSub(value,0,0);
     printf("]");
     // printf("[");
     // while (value.hasSubArray)

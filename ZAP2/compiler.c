@@ -306,7 +306,6 @@ static void varDeclaration() {
   } else {
     po p = addConstantArray(initEmptyArray(VAL_DOUBLE));
     int constant = p.offset;
-    ((Array*)p.ptr)->dims = initEmptyArray(VAL_DOUBLE);
     if (constant > UINT8_MAX) {
       error("Too many constants in one chunk.");
       return;
@@ -449,8 +448,10 @@ static void forStatement() {
     loopStart = incrementStart;
     patchJump(bodyJump);
   }
-  statement();
-  consume(TOKEN_SEMI, "Expect ';' after for loop body.");
+  while(!match(TOKEN_SEMI)){
+      statement();
+
+  }
   emitLoop(loopStart);
   if (exitJump != -1) {
     patchJump(exitJump);
@@ -568,8 +569,9 @@ static bool isDigit(char c) {
 static void parseArray(bool canAssign){
   const char *arr = parser.previous.start;
   char *valHolder;
+  changeArrayDims(currArray,0,currDepth-1);
   if(isDigit(arr[0])||arr[0]=='-'||arr[0]=='.'){
-    if(currArray->dims->as.doubles[currDepth-1] == 0){
+    if(!parseSet){
       currArray->type = VAL_DOUBLE;
     }
 
@@ -578,19 +580,15 @@ static void parseArray(bool canAssign){
       return;
     }
     double val = strtod(parser.previous.start, &valHolder);
-    createNewVal(currArray,&val);
-    if(!parseSet)
-      currArray->dims->as.doubles[currDepth-1] += 1;
+    createNewVal(currArray,&val,!parseSet);
     while (valHolder != parser.previous.start+parser.previous.length)
     {
       valHolder++;
       val = strtod(valHolder, &valHolder);
-      createNewVal(currArray,&val);
-      if(!parseSet)
-        currArray->dims->as.doubles[currDepth-1] += 1;
+      createNewVal(currArray,&val,!parseSet);
     }
   }else if(isAlpha(arr[0])){
-    if(currArray->dims->as.doubles[currDepth-1] == 0){
+    if(currArray->dims.values[currDepth-1] == 0){
       currArray->type = VAL_CHAR;
     }
 
@@ -598,17 +596,13 @@ static void parseArray(bool canAssign){
       errorAt(&parser.previous,"array is incorrect type for character");
       return;
     }
-    if(!parseSet)
-      currArray->dims->as.doubles[currDepth-1] += 1;
     while (arr != parser.previous.start+parser.previous.length)
     {
-      createNewVal(currArray, &arr[0]);
+      createNewVal(currArray, &arr[0],!parseSet);
       arr++;
-      if(!parseSet)
-        currArray->dims->as.doubles[currDepth-1] += 1;
     }
     char close = '\0';
-    createNewVal(currArray, &close);
+    createNewVal(currArray, &close,!parseSet);
     currArray->hash = hashString(currArray->as.chars,currArray->count);
   }
   parseSet = true;
@@ -710,16 +704,15 @@ static void and_(bool canAssign) {
 static void chain(bool canAssign);
 
 static void createMultiDim(bool canAssign){
-  if(currDepth == 0){
-    currArray->dims = initEmptyArray(VAL_DOUBLE);
-  }
+  // printf("creating multo\n");
+  // if(currDepth == 0){
+  //   changeArrayDims(currArray,0,0);
+  // }
   currDepth++;
-  if(currDepth > currArray->dims->count){
-    double minDim = 0;
-    createNewVal(currArray->dims, &minDim);
-  }
-  if(currDepth <= shallowestClosedDepth)
-    currArray->dims->as.doubles[currDepth-2]+=1;
+  // if(currDepth > currArray->dims.count+1){
+  //   changeArrayDims(currArray,1,currDepth-2);
+  // }
+
     // ta.values[ta.count - 1]->hasSubArray = true;
     // createInTemp(&ta,createNewVal(ta.values[ta.count - 1],  initEmptyArray(VAL_UNKNOWN)));
     // currArray = ta.values[ta.count - 1];
@@ -729,6 +722,8 @@ static void createMultiDim(bool canAssign){
   // }
     
     parsePrecedence(PREC_ASSIGNMENT);
+
+    
 }
 
 // static void setTypes(Array * a){
@@ -746,7 +741,15 @@ static void closeArray(bool canAssign){
   // if(ta.count >= 2)
   //    currArray = ta.values[ta.count - 2];
   // ta.count--;
+  // printf("closing array\n");
+  if(currDepth > 1)
+    changeArrayDims(currArray,1,currDepth-2);
   shallowestClosedDepth = currDepth < shallowestClosedDepth ? currDepth : shallowestClosedDepth;
+  
+  // printf("currarr dims count is %d\n",currArray->dims.count);
+  // for(int i = 0 ; i < currArray->dims.count; i++){
+  //   printf("dim %d is size %d\n",i,currArray->dims.values[i]);
+  // }
   currDepth--;
   if(currDepth == 0){
     //setTypes(currArray);
