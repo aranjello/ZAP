@@ -189,8 +189,8 @@ static Array* compareArrays(Array* a, Array *b){
 
 
 static Array* binaryOp(Array* a, Array* b,char op){
-    double aDeep = a->dims.values[a->dims.count-1];
-    double bDeep = b->dims.values[b->dims.count-1];
+    // double aDeep = a->dims.values[a->dims.count-1];
+    // double bDeep = b->dims.values[b->dims.count-1];
     // if(!all(compareArrays(a->dims,b->dims))){
     //   runtimeError("array size mismatch for operation %c\n", op);
     //   return addConstantArray(initEmptyArray(VAL_NULL)).ptr;
@@ -245,6 +245,10 @@ static void getArrayVal(){
         break;
       case VAL_DOUBLE:
         createNewVal(p.ptr,&val->as.doubles[(int)indicies->as.doubles[i]],true);
+        break;
+      default:
+        printf("not yet implemented\n");
+        exit(1);
         break;
     }
     

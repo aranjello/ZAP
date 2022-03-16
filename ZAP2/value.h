@@ -3,7 +3,7 @@
 
 #include "common.h"
 
-struct Chunk;
+typedef struct Chunk Chunk;
 
 typedef struct po{
   void *ptr;
@@ -35,7 +35,7 @@ typedef enum {
 
 typedef struct Function{
   int arity;
-  struct Chunk* chunk;
+  Chunk* chunk;
   int nameLength;
   char* name;
 } Function;
@@ -93,6 +93,6 @@ void freeArray(Array *array);
 void freeValueArray(ArrayArray* array);
 void printValue(Array value);
 
-Array *newFunction();
+Array *newFunction(Chunk* c);
 
 #endif

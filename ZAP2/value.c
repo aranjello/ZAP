@@ -54,6 +54,10 @@ Array *createArray(ValueType t,int numVals,...){
             case VAL_CHAR:
                 createNewVal(array,ptr,true);
                 break;
+            default:
+                printf("not yet implemented\n");
+                exit(1);
+                break;
         }
     }
     return array;
@@ -71,6 +75,11 @@ void freeArray(Array* array){
             case VAL_CHAR:
                 FREE_ARRAY(char, array->as.chars, array->capacity);
                 break;
+            default:
+                printf("not yet implemented\n");
+                exit(1);
+                break;
+
         }
         //free(array);
 }
@@ -204,6 +213,10 @@ void freeValueArray(ArrayArray* array) {
             case VAL_CHAR:
                 FREE_ARRAY(char, array->values[i]->as.chars, array->values[i]->capacity);
                 break;  
+            default:
+                printf("not yet implemented\n");
+                exit(1);
+                break;
         }
         array->values[i] = initEmptyArray(VAL_NULL);
     }
@@ -311,11 +324,11 @@ void printValue(Array value) {
     // printf("]");
 }
 
-Array* newFunction(){
+Array* newFunction(Chunk* c){
     Function f;
     f.arity = 0;
     f.name = NULL;
     f.nameLength = 0;
-    initChunk(f.chunk);
+    f.chunk = c;
     return createArray(false, VAL_FUNC, 1, f);
 }

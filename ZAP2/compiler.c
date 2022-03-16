@@ -29,6 +29,8 @@ typedef enum {
   PREC_PRIMARY
 } Precedence;
 
+#define UNUSED(x) (void)(x)
+
 typedef void (*ParseFn)(bool canAssign);
 
 typedef struct {
@@ -42,7 +44,14 @@ typedef struct {
   int depth;
 } Local;
 
+typedef enum {
+  TYPE_FUNCTION,
+  TYPE_SCRIPT
+} FunctionType;
+
 typedef struct {
+  Function* f;
+  FunctionType type;
   Local locals[UINT8_COUNT];
   int localCount;
   int scopeDepth;
@@ -95,7 +104,7 @@ get the current chunk we are working in
 @return The current chunk
 */
 static Chunk* currentChunk() {
-  return compilingChunk;
+  return &current->f->chunk;
 }
 
 static void initCompiler(Compiler* compiler) {
@@ -277,6 +286,7 @@ static void defineVariable(uint8_t global) {
 }
 
 static void binary(bool canAssign) {
+  UNUSED(canAssign);
   TokenType operatorType = parser.previous.type;
   ParseRule* rule = getRule(operatorType);
   parsePrecedence((Precedence)(rule->precedence + 1));
@@ -500,6 +510,7 @@ static void statement() {
 }
 
 static void grouping(bool canAssign) {
+  UNUSED(canAssign);
   expression();
   consume(TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
 }
@@ -561,12 +572,13 @@ Check if the input char is a digit
 @return c is a digit
 */
 static bool isDigit(char c) {
-  return c == '-' || c >= '0' && c <= '9';
+  return c == '-' || (c >= '0' && c <= '9');
 }
 
 
 
 static void parseArray(bool canAssign){
+  UNUSED(canAssign);
   const char *arr = parser.previous.start;
   char *valHolder;
   changeArrayDims(currArray,0,currDepth-1);
@@ -598,7 +610,7 @@ static void parseArray(bool canAssign){
     }
     while (arr != parser.previous.start+parser.previous.length)
     {
-      createNewVal(currArray, &arr[0],!parseSet);
+      createNewVal(currArray, (char*)&arr[0],!parseSet);
       arr++;
     }
     char close = '\0';
@@ -618,6 +630,7 @@ static void lookup(bool canAssign){
 }
 
 static void unary(bool canAssign) {
+  UNUSED(canAssign);
   TokenType operatorType = parser.previous.type;
 
 
@@ -662,7 +675,6 @@ static void namedVariable(Token name, bool canAssign) {
     uint32_t hash = hashString(name.start, name.length);
     p = tableFindKey(&currVm->globalInterned, name.start, name.length, hash);
     if(p.ptr == NULL){
-      Key k;
       p = addGlobKey(parser.previous.start,parser.previous.length);
       tableSet(&currVm->globalInterned, p.ptr, NULL);
     };
@@ -682,6 +694,7 @@ static void variable(bool canAssign) {
 }
 
 static void or_(bool canAssign) {
+  UNUSED(canAssign);
   int elseJump = emitJump(OP_JUMP_IF_FALSE);
   int endJump = emitJump(OP_JUMP);
 
@@ -693,6 +706,7 @@ static void or_(bool canAssign) {
 }
 
 static void and_(bool canAssign) {
+  UNUSED(canAssign);
   int endJump = emitJump(OP_JUMP_IF_FALSE);
 
   emitByte(OP_POP);
@@ -704,88 +718,32 @@ static void and_(bool canAssign) {
 static void chain(bool canAssign);
 
 static void createMultiDim(bool canAssign){
-  // printf("creating multo\n");
-  // if(currDepth == 0){
-  //   changeArrayDims(currArray,0,0);
-  // }
-  currDepth++;
-  // if(currDepth > currArray->dims.count+1){
-  //   changeArrayDims(currArray,1,currDepth-2);
-  // }
-
-    // ta.values[ta.count - 1]->hasSubArray = true;
-    // createInTemp(&ta,createNewVal(ta.values[ta.count - 1],  initEmptyArray(VAL_UNKNOWN)));
-    // currArray = ta.values[ta.count - 1];
-  // }else{
-  //   createInTemp(&ta, initEmptyArray(VAL_UNKNOWN));
-  //   currArray = ta.values[ta.count - 1];
-  // }
-    
-    parsePrecedence(PREC_ASSIGNMENT);
-
-    
+  UNUSED(canAssign);
+  currDepth++;  
+  parsePrecedence(PREC_ASSIGNMENT);   
 }
 
-// static void setTypes(Array * a){
-//   for (int i = 0; i < a->count; i++){
-//     if(a->hasSubArray)
-//       setTypes(a->as.arrays[i]);
-//   }
-//   Array *temp = a;
-//   while(temp->hasSubArray){
-//     temp = *temp->as.arrays;
-//   }
-// }
-
 static void closeArray(bool canAssign){
-  // if(ta.count >= 2)
-  //    currArray = ta.values[ta.count - 2];
-  // ta.count--;
-  // printf("closing array\n");
+  UNUSED(canAssign);
   if(currDepth > 1)
     changeArrayDims(currArray,1,currDepth-2);
   shallowestClosedDepth = currDepth < shallowestClosedDepth ? currDepth : shallowestClosedDepth;
   
-  // printf("currarr dims count is %d\n",currArray->dims.count);
-  // for(int i = 0 ; i < currArray->dims.count; i++){
-  //   printf("dim %d is size %d\n",i,currArray->dims.values[i]);
-  // }
   currDepth--;
   if(currDepth == 0){
-    //setTypes(currArray);
     parseSet = false;
     shallowestClosedDepth = INT_MAX;
     emitArray();
   }
 }
 
-// static bool contains(Array* parent, Array * child){
-//   if(!parent->hasSubArray)
-//     return false;
-//   for (int i = 0; i < parent->count; i++){
-//     if(parent->as.arrays[i] == child)
-//       return true;
-//   }
-//   return false;
-// }
-
 static void chain(bool canAssign){
+  UNUSED(canAssign);
   parsePrecedence(PREC_ASSIGNMENT);
-}
-
-// static void chainChar(bool canAssign){
-//   character(canAssign);
-//   chain(canAssign);
-// }
-
-static void getDims(bool canAssign){
-  parsePrecedence(PREC_UNARY);
-  emitByte(OP_GET_DIMS);
 }
 
 ParseRule rules[] = {
     [TOKEN_LEFT_PAREN] = {grouping, NULL, PREC_NONE},
-    [TOKEN_RIGHT_PAREN] = {NULL, NULL, PREC_NONE},
     [TOKEN_LEFT_BRACE] = {NULL, NULL, PREC_NONE},
     [TOKEN_RIGHT_BRACE] = {NULL, NULL, PREC_NONE},
     [TOKEN_ARRAY] = {parseArray, lookup, PREC_ARRAY},
