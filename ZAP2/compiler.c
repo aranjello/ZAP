@@ -107,10 +107,17 @@ static Chunk* currentChunk() {
   return &current->f->chunk;
 }
 
-static void initCompiler(Compiler* compiler) {
+static void initCompiler(Compiler* compiler, FunctionType type) {
+  compiler->f = NULL;
+  compiler->type = type;
   compiler->localCount = 0;
   compiler->scopeDepth = 0;
+  compiler->f = newFunction();
   current = compiler;
+  Local* local = &current->locals[current->localCount++];
+  local->depth = 0;
+  local->name.start = "";
+  local->name.length = 0;
 }
 
 static void errorAt(Token* token, const char* message) {
@@ -203,8 +210,20 @@ static void emitArray() {
   emitBytes(OP_ARRAY, makeConstant());      
 }
 
-static void endCompiler() {
+static Function* endCompiler() {
   emitReturn();
+  Function* f = current->f;
+
+  #ifdef DEBUG_TRACE_EXECUTION
+    if (!parser.hadError) {
+
+      disassembleChunk(currentChunk(), f->name != NULL
+          ? f->name : "<script>");
+
+    }
+  #endif
+
+  return f;
 }
 
 static void expression();
@@ -817,12 +836,10 @@ static ParseRule* getRule(TokenType type) {
   return &rules[type];
 }
 
-bool compile(VM* vm,const char* source, Chunk* chunk) {
+Function* compile(const char* source) {
   initScanner(source);
   Compiler compiler;
-  initCompiler(&compiler);
-  currVm = vm;
-  compilingChunk = chunk;
+  initCompiler(&compiler,TYPE_SCRIPT);
   parser.hadError = false;
   parser.panicMode = false;
   currArray = initEmptyArray(VAL_UNKNOWN);
@@ -831,6 +848,6 @@ bool compile(VM* vm,const char* source, Chunk* chunk) {
     declaration();
   }
   consume(TOKEN_EOF, "Expect end of expression.");
-  endCompiler();
-  return !parser.hadError;
+  Function* f = endCompiler();
+  return parser.hadError?NULL:f;
 }

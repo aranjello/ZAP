@@ -48,11 +48,11 @@ prints out the name of some key that will be used for variable lookup
 @param chunk The chunk the key location is stored in
 @param offset the current offset of the instruction from the beginning of its chunk
 */
-static int keyInstruction(VM* vm,const char* name, Chunk* chunk, 
+static int keyInstruction(const char* name, Chunk* chunk, 
                                int offset) {
   uint8_t constant = chunk->code[offset + 1];
   printf("%-16s %4d '", name, constant);
-  Key k = vm->globKeys.as.keys[constant];
+  Key k = chunk->constants.values[constant]->as.keys[0];
     printf("%s",k.value);
     printf("'\n");
   return offset + 2;
@@ -65,11 +65,11 @@ Prints out the value of the array stored in the VM at some offset
 @param chunk The chunk the array offset is stored in
 @param offset the current offset of the instruction from the beginning of its chunk
 */
-static int arrayInstruction(VM* vm,const char* name, Chunk* chunk,
+static int arrayInstruction(const char* name, Chunk* chunk,
                                int offset) {
   uint8_t constant = chunk->code[offset + 1];
   printf("%-16s %4d '", name, constant);
-  printValue(*vm->constantArrays.values[constant]);
+  printValue(*chunk->constants.values[constant]);
   printf("'\n");
   return offset + 2;
 }
@@ -81,7 +81,7 @@ Prints out the instruction at a given offset for a given vm and chunk
 @param offset the current offset of the instruction from the beginning of its chunk
 @return Returns the current offset after executing an instruction
 */
-int disassembleInstruction(VM* vm,Chunk* chunk, int offset) {
+int disassembleInstruction(Chunk* chunk, int offset) {
   printf("%04d ", offset);
 
   if (offset > 0 && chunk->lines[offset] == chunk->lines[offset - 1])
@@ -95,7 +95,7 @@ int disassembleInstruction(VM* vm,Chunk* chunk, int offset) {
   switch (instruction) {
     //Array controls
     case OP_ARRAY:
-      return arrayInstruction(vm,"OP_ARRAY", chunk, offset);
+      return arrayInstruction("OP_ARRAY", chunk, offset);
     case OP_POP:
       return simpleInstruction("OP_POP", offset);
     //Math ops
@@ -120,11 +120,11 @@ int disassembleInstruction(VM* vm,Chunk* chunk, int offset) {
       return jumpInstruction("OP_JUMP_IF_FALSE", 1, chunk, offset);
     //global var ops
     case OP_GET_GLOBAL:
-      return keyInstruction(vm,"OP_GET_GLOBAL", chunk, offset);
+      return keyInstruction("OP_GET_GLOBAL", chunk, offset);
     case OP_DEFINE_GLOBAL:
-      return keyInstruction(vm,"OP_DEFINE_GLOBAL", chunk, offset);
+      return keyInstruction("OP_DEFINE_GLOBAL", chunk, offset);
     case OP_SET_GLOBAL:
-      return keyInstruction(vm,"OP_SET_GLOBAL",chunk, offset);
+      return keyInstruction("OP_SET_GLOBAL",chunk, offset);
     //local var ops
     case OP_GET_LOCAL:
       return byteInstruction("OP_GET_LOCAL", chunk, offset);
@@ -157,10 +157,10 @@ Loops through a chunk and disassemble all op code and values within it
 @param chunk The currently active chunk
 @param name the name of the chunk
 */
-void disassembleChunk(VM* vm,Chunk* chunk, const char* name) {
+void disassembleChunk(Chunk* chunk, const char* name) {
   printf("== %s ==\n", name);
 
   for (int offset = 0; offset < chunk->count;) {
-    offset = disassembleInstruction(vm,chunk, offset);
+    offset = disassembleInstruction(chunk, offset);
   }
 }

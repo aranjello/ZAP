@@ -6,7 +6,14 @@
 #include "table.h"
 #include "memory.h"
 
-#define STACK_MAX 256
+#define FRAMES_MAX 64
+#define STACK_MAX (FRAMES_MAX * UINT8_COUNT)
+
+typedef struct {
+  Function* function;
+  uint8_t* ip;
+  Array* slots;
+} CallFrame;
 
 typedef struct localSpace{
   Table localInterned;
@@ -15,14 +22,14 @@ typedef struct localSpace{
 } localSpace;
 
 typedef struct VM{
-  Chunk* chunk;
-  uint8_t* ip;
+  CallFrame frames[FRAMES_MAX];
+  int frameCount;
   Array* stack[STACK_MAX];
   Array** stackTop;
   Table globalInterned;
-  Array globKeys;
+  // Array globKeys;
   Table globVars;
-  ArrayArray constantArrays;
+  //ArrayArray constantArrays;
 } VM;
 
 typedef enum {

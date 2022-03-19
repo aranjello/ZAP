@@ -23,10 +23,6 @@ typedef enum {
   VAL_KEY,
   //evaluation array
   VAL_EVAL,
-  //chunk array
-  VAL_CHUNK,
-  //recursive ArrayArray
-  VAL_ARRAY,
   //NULL is for null array
   VAL_NULL, 
   //UNKNOWN is for array being created before a type is defined
@@ -93,6 +89,6 @@ void freeArray(Array *array);
 void freeValueArray(ArrayArray* array);
 void printValue(Array value);
 
-Array *newFunction(Chunk* c);
+Function *newFunction();
 
 #endif

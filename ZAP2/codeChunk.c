@@ -13,6 +13,7 @@ void initChunk(Chunk* chunk) {
   chunk->capacity = 0;
   chunk->code = NULL;
   chunk->lines = NULL;
+  initValueArray(&chunk->constants);
 }
 
 /*
@@ -44,5 +45,10 @@ void writeChunk(Chunk* chunk, uint8_t byte, int line) {
   chunk->lines[chunk->count] = line;
   chunk->code[chunk->count] = byte;
   chunk->count++;
+}
+
+int addConstant(Chunk* chunk, Array* value) {
+  createValueArray(&chunk->constants, value);
+  return chunk->constants.count - 1;
 }
 

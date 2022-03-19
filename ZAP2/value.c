@@ -259,6 +259,10 @@ static int printSub(Array value, double count, int offset){
                 }
                 
             case VAL_FUNC:{
+                if (value.as.funcs->name == NULL) {
+                    printf("<script>");
+                    return;
+                }
                 printf("<fn %s>", value.as.funcs->name);
                 break;
             }
@@ -324,11 +328,11 @@ void printValue(Array value) {
     // printf("]");
 }
 
-Array* newFunction(Chunk* c){
-    Function f;
-    f.arity = 0;
-    f.name = NULL;
-    f.nameLength = 0;
-    f.chunk = c;
-    return createArray(false, VAL_FUNC, 1, f);
+Function* newFunction(){
+    Function *f = malloc(sizeof(Function));
+    f->arity = 0;
+    f->name = NULL;
+    f->nameLength = 0;
+    initChunk(&f->chunk);
+    return f;
 }
