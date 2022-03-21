@@ -3,6 +3,7 @@
 
 #include "memory.h"
 #include "value.h"
+#include "chunk.h"
 
 /*
 Initialize a arrDimensions array
@@ -51,6 +52,9 @@ void writeArray(Array* array, void* value, bool changeDims) {
                 array->as.doubles = GROW_ARRAY(double, array->as.doubles,
                                     oldCapacity, array->capacity);            
                 break;
+            case(FUNC_ARR):
+                array->as.funcs = GROW_ARRAY(function*,array->as.funcs,oldCapacity,array->capacity);
+                break;
             case(UNKNOWN_ARR):
                 fprintf(stderr,"ERROR array was left with unknown type\n");
                 exit(1);
@@ -67,6 +71,9 @@ void writeArray(Array* array, void* value, bool changeDims) {
             break;
         case(ARR_ARR):
             array->as.arrays[array->count] = (struct Array*)value;
+            break;
+        case(FUNC_ARR):
+            array->as.funcs[array->count] = (function*)value;
             break;
         case(UNKNOWN_ARR):
             fprintf(stderr,"ERROR array was left with unknown type\n");
@@ -142,6 +149,13 @@ static int printSub(Array value, int count, int offset){
                     case KEY_ARR:
                         printf("%s", value.as.keys[i+offset]->chars);
                         break;
+                    case FUNC_ARR:
+                        if (value.as.funcs[i+offset]->name == NULL) {
+                            printf("<script>");
+                            break;
+                        }
+                        printf("<fn %s>",value.as.funcs[i+offset]->name->chars);
+                        break;
                     case ARR_ARR:
                         printf("arr");
                         break;
@@ -172,4 +186,13 @@ void printValue(Array* value) {
     printf("[");
     printSub(*value,0,0);
     printf("]");  
+}
+
+function* newFunction() {
+  function* func = malloc(sizeof(function));
+  func->arity = 0;
+  func->name = NULL;
+  func->chunk = malloc(sizeof(Chunk));
+  initChunk((Chunk*)func->chunk);
+  return func;
 }

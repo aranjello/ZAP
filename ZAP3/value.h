@@ -7,6 +7,7 @@
 typedef enum{
     DOUBLE_ARR,
     KEY_ARR,
+    FUNC_ARR,
     ARR_ARR,
     UNKNOWN_ARR,
 }arrType;
@@ -16,6 +17,12 @@ typedef struct{
     char* chars;
     uint32_t hash;
 } keyString;
+
+typedef struct {
+  int arity;
+  struct Chunk* chunk;
+  keyString* name;
+} function;
 
 typedef struct{
   int count;
@@ -33,6 +40,7 @@ typedef struct {
     {
         double* doubles;
         keyString** keys;
+        function** funcs;
         struct Array** arrays;
     }as;
 } Array;
@@ -45,5 +53,7 @@ void changeArrayDims(Array* arr,int change, int dimDepth);
 void copyDimArray(Array* source, Array* dest);
 
 void printValue(Array* val);
+
+function* newFunction();
 
 #endif

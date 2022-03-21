@@ -284,7 +284,7 @@ Token scanToken() {
         case '/': return makeToken(TOKEN_FORWARD_SLASH);
         case '*': return makeToken(TOKEN_STAR);
         case '?': return makeToken(
-          match('!')?TOKEN_WHILE:match('?')?TOKEN_FOR:TOKEN_QUESTION);
+          match('!')?TOKEN_WHILE:match('?')?TOKEN_FOR:TOKEN_IF);
         case '&':
           return makeToken(
               match('&') ? TOKEN_AND : TOKEN_AMP);
@@ -293,7 +293,7 @@ Token scanToken() {
               match('|') ? TOKEN_OR : TOKEN_BAR);
         case '!':
         return makeToken(
-            match('=') ? TOKEN_BANG_EQUAL : TOKEN_BANG);
+            match('=') ? TOKEN_BANG_EQUAL :match('?')?TOKEN_ELSE: TOKEN_BANG);
         case '=':
         return makeToken(
             match('=') ? TOKEN_EQUAL_EQUAL : TOKEN_EQUAL);

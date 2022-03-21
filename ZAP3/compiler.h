@@ -3,6 +3,6 @@
 
 #include "vm.h"
 
-bool compile(VM* vm,const char* source, Chunk* chunk);
+function* compile(VM* vm,const char* source);
 
 #endif
