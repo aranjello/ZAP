@@ -1,3 +1,3 @@
-release : ZAP3/*.c ZAP3/*.h
-	gcc -Wall -Wextra ZAP3/*.c -o ZAP3/builds/release
-	./ZAP3/builds/release
+release : ZAP/*.c ZAP/*.h
+	gcc -Wall -Wextra ZAP/*.c -o ZAP/builds/release
+	./ZAP/builds/release
