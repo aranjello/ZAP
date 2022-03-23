@@ -9,7 +9,5 @@ void* resizeArr(void *arrPtr, int newSize){
         free(arrPtr);
     }
     arrPtr = realloc(arrPtr, newSize);
-    if(arrPtr == NULL)
-        printf("error realloc failed\n");
     return arrPtr;
 }

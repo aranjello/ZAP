@@ -23,8 +23,10 @@ void initScanner(const char* source) {
   scanner.line = 1;
 }
 
-void rewindScanner(const char* rewindCurr){
-  scanner.current = rewindCurr;
+void rewindScanner(Token t){
+  if(t.type == TOKEN_LEFT_SQUARE)
+    arrayDepth--;
+  scanner.current = t.start;
 }
 
 /*

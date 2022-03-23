@@ -35,5 +35,5 @@ typedef struct {
 } Token;
 
 void initScanner(const char* source);
-void rewindScanner(const char* resetCurr);
+void rewindScanner(Token t);
 Token scanToken();
