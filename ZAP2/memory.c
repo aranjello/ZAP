@@ -9,6 +9,7 @@ Reallocates or frees the data at a given pointer given the pointer, its current 
 @param newSize The requested new size of the data
 */
 void* reallocate(void* pointer, size_t oldSize, size_t newSize) {
+  UNUSED(oldSize);
   if (newSize == 0) {
     free(pointer);
     return NULL;

@@ -277,6 +277,7 @@ static void defineVariable(uint8_t global) {
 }
 
 static void binary(bool canAssign) {
+  UNUSED(canAssign);
   TokenType operatorType = parser.previous.type;
   ParseRule* rule = getRule(operatorType);
   parsePrecedence((Precedence)(rule->precedence + 1));
@@ -325,6 +326,11 @@ static void expressionStatement() {
 static void printStatement() {
   expression();
   emitByte(OP_PRINT);
+}
+
+static void getValTypeStatement() {
+  expression();
+  emitByte(OP_GET_TYPE);
 }
 
 static void synchronize() {
@@ -484,7 +490,9 @@ static void block() {
 static void statement() {
   if (match(TOKEN_BANG)) {
     printStatement();
-  } else if (match(TOKEN_LEFT_BRACE)) {
+  } else if(match(TOKEN_AT)){
+    getValTypeStatement();
+  }else if (match(TOKEN_LEFT_BRACE)) {
     beginScope();
     block();
     endScope();
@@ -499,7 +507,8 @@ static void statement() {
   }
 }
 
-static void grouping(bool canAssign) {
+static void grouping(bool canAssign){
+  UNUSED(canAssign);
   expression();
   consume(TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
 }
@@ -561,33 +570,66 @@ Check if the input char is a digit
 @return c is a digit
 */
 static bool isDigit(char c) {
-  return c == '-' || c >= '0' && c <= '9';
+  return c == '-' || (c >= '0' && c <= '9');
 }
 
+static bool foundDecimal(Token t){
+  const char *tokenIterartor = t.start;
+  for (; tokenIterartor != t.start + t.length;tokenIterartor++)
+  {
+    if(*tokenIterartor == '.')
+      return true;
+  }
+  return false;
+}
 
+static bool hasChars(Token t){
+  const char *tokenIterartor = t.start;
+  for (; tokenIterartor != t.start + t.length;tokenIterartor++)
+  {
+    if(isAlpha(*tokenIterartor))
+      return true;
+  }
+  return false;
+}
 
 static void parseArray(bool canAssign){
+  UNUSED(canAssign);  
   const char *arr = parser.previous.start;
   char *valHolder;
   changeArrayDims(currArray,0,currDepth-1);
-  if(isDigit(arr[0])||arr[0]=='-'||arr[0]=='.'){
+  if(!hasChars(parser.previous)){
+    ValueType numType = foundDecimal(parser.previous) ? VAL_DOUBLE : VAL_INT;
+    printf("numType is %s", numType == VAL_INT ? "VAL_INT" : "VAL_DOUBLE");
     if(!parseSet){
-      currArray->type = VAL_DOUBLE;
+      currArray->type = numType;
     }
 
-    if(currArray->type != VAL_DOUBLE){
+    if(currArray->type != numType){
       errorAt(&parser.previous,"array is incorrect type for number");
       return;
     }
     double val = strtod(parser.previous.start, &valHolder);
-    createNewVal(currArray,&val,!parseSet);
+    int intVal = val;
+    void *valPtr;
+    if(numType == VAL_INT)
+      valPtr = &intVal;
+    else
+      valPtr = &val;
+    createNewVal(currArray,valPtr,!parseSet);
     while (valHolder != parser.previous.start+parser.previous.length)
     {
       valHolder++;
       val = strtod(valHolder, &valHolder);
-      createNewVal(currArray,&val,!parseSet);
+      intVal = val;
+      void *valPtr;
+      if(numType == VAL_INT)
+        valPtr = &intVal;
+      else
+        valPtr = &val;
+      createNewVal(currArray,valPtr,!parseSet);
     }
-  }else if(isAlpha(arr[0])){
+  }else{
     if(currArray->dims.values[currDepth-1] == 0){
       currArray->type = VAL_CHAR;
     }
@@ -598,7 +640,7 @@ static void parseArray(bool canAssign){
     }
     while (arr != parser.previous.start+parser.previous.length)
     {
-      createNewVal(currArray, &arr[0],!parseSet);
+      createNewVal(currArray, (char*)&arr[0],!parseSet);
       arr++;
     }
     char close = '\0';
@@ -618,6 +660,7 @@ static void lookup(bool canAssign){
 }
 
 static void unary(bool canAssign) {
+  UNUSED(canAssign);
   TokenType operatorType = parser.previous.type;
 
 
@@ -662,7 +705,6 @@ static void namedVariable(Token name, bool canAssign) {
     uint32_t hash = hashString(name.start, name.length);
     p = tableFindKey(&currVm->globalInterned, name.start, name.length, hash);
     if(p.ptr == NULL){
-      Key k;
       p = addGlobKey(parser.previous.start,parser.previous.length);
       tableSet(&currVm->globalInterned, p.ptr, NULL);
     };
@@ -682,6 +724,7 @@ static void variable(bool canAssign) {
 }
 
 static void or_(bool canAssign) {
+  UNUSED(canAssign);
   int elseJump = emitJump(OP_JUMP_IF_FALSE);
   int endJump = emitJump(OP_JUMP);
 
@@ -693,6 +736,7 @@ static void or_(bool canAssign) {
 }
 
 static void and_(bool canAssign) {
+  UNUSED(canAssign);
   int endJump = emitJump(OP_JUMP_IF_FALSE);
 
   emitByte(OP_POP);
@@ -704,6 +748,7 @@ static void and_(bool canAssign) {
 static void chain(bool canAssign);
 
 static void createMultiDim(bool canAssign){
+  UNUSED(canAssign);
   // printf("creating multo\n");
   // if(currDepth == 0){
   //   changeArrayDims(currArray,0,0);
@@ -738,6 +783,7 @@ static void createMultiDim(bool canAssign){
 // }
 
 static void closeArray(bool canAssign){
+  UNUSED(canAssign);
   // if(ta.count >= 2)
   //    currArray = ta.values[ta.count - 2];
   // ta.count--;
@@ -770,6 +816,7 @@ static void closeArray(bool canAssign){
 // }
 
 static void chain(bool canAssign){
+  UNUSED(canAssign);
   parsePrecedence(PREC_ASSIGNMENT);
 }
 
@@ -777,11 +824,6 @@ static void chain(bool canAssign){
 //   character(canAssign);
 //   chain(canAssign);
 // }
-
-static void getDims(bool canAssign){
-  parsePrecedence(PREC_UNARY);
-  emitByte(OP_GET_DIMS);
-}
 
 ParseRule rules[] = {
     [TOKEN_LEFT_PAREN] = {grouping, NULL, PREC_NONE},
@@ -791,7 +833,6 @@ ParseRule rules[] = {
     [TOKEN_ARRAY] = {parseArray, lookup, PREC_ARRAY},
     [TOKEN_LEFT_SQUARE] = {createMultiDim, NULL, PREC_NONE},
     [TOKEN_RIGHT_SQUARE] = {NULL, closeArray, PREC_ASSIGNMENT},
-    [TOKEN_RIGHT_PAREN] = {NULL, NULL, PREC_NONE},
     [TOKEN_COMMA] = {NULL, chain, PREC_ASSIGNMENT},
     [TOKEN_DOT] = {NULL, binary, PREC_FACTOR},
     [TOKEN_MINUS] = {unary, binary, PREC_TERM},

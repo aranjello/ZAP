@@ -30,6 +30,7 @@ typedef enum
     //monadic function ops
     OP_PRINT,
     OP_GET_DIMS,
+    OP_GET_TYPE,
     //dyadic function ops
     OP_LOOKUP,
     //monadic comparison ops

@@ -210,25 +210,25 @@ static Token identifier() {
 Creates a token for a number
 @return The newly creaetd token
 */
-static Token number() {
-  while (isDigit(peek())) advance();
+// static Token number() {
+//   while (isDigit(peek())) advance();
 
-  // Look for a fractional part.
-  if (peek() == '.' && isDigit(peekNext())) {
-    // Consume the ".".
-    advance();
+//   // Look for a fractional part.
+//   if (peek() == '.' && isDigit(peekNext())) {
+//     // Consume the ".".
+//     advance();
 
-    while (isDigit(peek())) advance();
-  }
+//     while (isDigit(peek())) advance();
+//   }
 
-  return makeToken(TOKEN_NUMBER);
-}
+//   return makeToken(TOKEN_NUMBER);
+// }
 
 static Token arrayInterior(){
   if(arrayDepth == 0)
     return errorToken("array interior must be inside []");
   while(peek() != ']'){
-    char c = advance();
+    advance();
   }
   return makeToken(TOKEN_ARRAY);
 }
@@ -283,6 +283,7 @@ Token scanToken() {
         case '+': return makeToken(TOKEN_PLUS);
         case '/': return makeToken(TOKEN_FORWARD_SLASH);
         case '*': return makeToken(TOKEN_STAR);
+        case '@': return makeToken(TOKEN_AT);
         case '?': return makeToken(
           match('!')?TOKEN_WHILE:match('?')?TOKEN_FOR:TOKEN_QUESTION);
         case '&':

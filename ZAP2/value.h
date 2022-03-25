@@ -14,31 +14,15 @@ typedef enum {
   //basic data types
   VAL_INT,
   VAL_DOUBLE,
-  VAL_FLOAT,
   VAL_CHAR,
   VAL_BOOL,
-  //function array
-  VAL_FUNC,
   //key array
   VAL_KEY,
-  //evaluation array
-  VAL_EVAL,
-  //chunk array
-  VAL_CHUNK,
   //recursive ArrayArray
-  VAL_ARRAY,
-  //NULL is for null array
   VAL_NULL, 
   //UNKNOWN is for array being created before a type is defined
   VAL_UNKNOWN,
 } ValueType;
-
-typedef struct Function{
-  int arity;
-  struct Chunk* chunk;
-  int nameLength;
-  char* name;
-} Function;
 
 typedef struct Key{
     char* value;
@@ -46,10 +30,6 @@ typedef struct Key{
     int loc;
     uint32_t hash;
 } Key;
-
-typedef struct Evaluator{
-  void *evaluator;
-} Evaluator;
 
 typedef struct arrDimensions{
   int count;
@@ -67,12 +47,9 @@ typedef struct Array{
   union{
     int           *ints;
     double        *doubles;
-    float         *floats;
     char          *chars;
     bool          *bools;
-    Function      *funcs;
     Key           *keys;
-    Evaluator     *evals;
   } as;
 } Array;
 
@@ -92,7 +69,5 @@ void * createValueArray(ArrayArray* array , Array * arr);
 void freeArray(Array *array);
 void freeValueArray(ArrayArray* array);
 void printValue(Array value);
-
-Array *newFunction();
-
+void printArrayType(Array value);
 #endif

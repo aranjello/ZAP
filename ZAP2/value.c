@@ -47,14 +47,14 @@ Array *createArray(ValueType t,int numVals,...){
     //array->hasSubArray = hasSub;
     for (int i = 0; i < numVals; i++){
         va_arg(ptr, void *);
-        switch(t){
-            case VAL_DOUBLE:
-                createNewVal(array,ptr,true);
-                break;
-            case VAL_CHAR:
-                createNewVal(array,ptr,true);
-                break;
-        }
+        // switch(t){
+        //     case VAL_DOUBLE:
+        createNewVal(array,ptr,true);
+        //         break;
+        //     case VAL_CHAR:
+        //         createNewVal(array,ptr,true);
+        //         break;
+        // }
     }
     return array;
 }
@@ -62,8 +62,8 @@ Array *createArray(ValueType t,int numVals,...){
 void freeArray(Array* array){
     switch(array->type)
         {
-            case VAL_KEY:
-                FREE_ARRAY(Key, array->as.keys, array->capacity);
+            case VAL_INT:
+                FREE_ARRAY(int, array->as.ints, array->capacity);
                 break;
             case VAL_DOUBLE:
                 FREE_ARRAY(double, array->as.doubles, array->capacity);
@@ -71,8 +71,21 @@ void freeArray(Array* array){
             case VAL_CHAR:
                 FREE_ARRAY(char, array->as.chars, array->capacity);
                 break;
+            case VAL_BOOL:
+                FREE_ARRAY(bool, array->as.bools, array->capacity);
+                break;
+            case VAL_KEY:
+                FREE_ARRAY(Key, array->as.keys, array->capacity);
+                break;
+            case VAL_NULL:
+                //Null should be already empty
+                if(array->as.ints != NULL)
+                    exit(1);
+                break;
+            case VAL_UNKNOWN:
+                //Should be unreachable
+                exit(1);
         }
-        //free(array);
 }
 
 void changeArrayDims(Array* arr,int change, int dimDepth){
@@ -105,8 +118,8 @@ void * createNewVal(Array* array, void * val, bool changeDims){
         array->capacity = GROW_CAPACITY(oldCapacity);
         switch (array->type)
         {
-        case VAL_KEY:
-            array->as.keys = GROW_ARRAY(Key, array->as.keys,
+        case VAL_INT:
+            array->as.ints = GROW_ARRAY(int, array->as.ints,
                                     oldCapacity, array->capacity);
             break;
         case VAL_DOUBLE:
@@ -117,27 +130,42 @@ void * createNewVal(Array* array, void * val, bool changeDims){
             array->as.chars = GROW_ARRAY(char,array->as.chars,
                                     oldCapacity, array->capacity);
             break;
+        case VAL_BOOL:
+            array->as.bools = GROW_ARRAY(bool,array->as.bools,
+                                    oldCapacity, array->capacity);
+            break;
+        case VAL_KEY:
+            array->as.keys = GROW_ARRAY(Key, array->as.keys,
+                                    oldCapacity, array->capacity);
+            break;
+        
+        
         // case VAL_UNKNOWN:
         //     array->as.arrays = GROW_ARRAY(Array*, array->as.arrays, oldCapacity, array->capacity);
         //     break;
-        default:
-            printf("array type not set\n");
-            break;
+        // default:
+        //     printf("array type not set\n");
+        //     break;
         }
     }
     
     array->count++;
     switch (array->type)
     {
-        case VAL_KEY :
-            array->as.keys[array->count - 1] = *(Key *)val;
-            array->as.keys[array->count - 1].loc = array->count - 1;
-            return &array->as.keys[array->count - 1];
+        case VAL_INT : 
+            array->as.ints[array->count - 1] = *(int *)val;
+            return &array->as.ints[array->count - 1];
             break;
         case VAL_DOUBLE : 
             array->as.doubles[array->count - 1] = *(double *)val;
             return &array->as.doubles[array->count - 1];
             break;
+        case VAL_KEY :
+            array->as.keys[array->count - 1] = *(Key *)val;
+            array->as.keys[array->count - 1].loc = array->count - 1;
+            return &array->as.keys[array->count - 1];
+            break;
+        
         case VAL_CHAR :
             array->as.chars[array->count - 1] = *(char *)val;
             return &array->as.chars[array->count - 1];
@@ -146,10 +174,10 @@ void * createNewVal(Array* array, void * val, bool changeDims){
         //     array->as.arrays[array->count - 1] = (Array*)val;
         //     return array->as.arrays[array->count - 1];
         //     break;
-        default:
-            printf("array type not set for return\n");
-            return NULL;
-            break;
+        // default:
+        //     printf("array type not set for return\n");
+        //     return NULL;
+        //     break;
         }
 }
 
@@ -193,19 +221,7 @@ frees the memory used by a chunks array array
 */
 void freeValueArray(ArrayArray* array) {
     for (int i = 0; i < array->count; i++){
-        switch(array->values[i]->type)
-        {
-            case VAL_KEY:
-                FREE_ARRAY(Key, array->values[i]->as.keys, array->values[i]->capacity);
-                break;
-            case VAL_DOUBLE:
-                FREE_ARRAY(double, array->values[i]->as.doubles, array->values[i]->capacity);
-                break;
-            case VAL_CHAR:
-                FREE_ARRAY(char, array->values[i]->as.chars, array->values[i]->capacity);
-                break;  
-        }
-        array->values[i] = initEmptyArray(VAL_NULL);
+        freeArray(array->values[i]);
     }
     FREE_ARRAY(Array, array->values, array->capacity);
     initValueArray(array);
@@ -221,19 +237,29 @@ static int printSub(Array value, double count, int offset){
             {
                 
                 if (i > 0)
-                    if (value.type == VAL_DOUBLE)
+                    if (value.type == VAL_DOUBLE || value.type == VAL_INT)
                         printf(",");
                 switch (value.type)
                 {
-                case VAL_UNKNOWN:
-                    printf("not set");
+                case VAL_INT:
+                    printf("%d", value.as.ints[i+offset]);
                     break;
                 case VAL_DOUBLE:
                     printf("%g", value.as.doubles[i+offset]);
                     break;
                 case VAL_CHAR:
+                    if(value.as.chars[i+offset] == '\0')
+                        break;
                     printf("%c", value.as.chars[i+offset]);
                     break;
+                case VAL_BOOL:
+                    printf("%d", value.as.bools[i+offset]);
+                    break;
+                case VAL_UNKNOWN:
+                    printf("not set");
+                    break;
+                
+                
                 case VAL_KEY:
                 {
                     Key k = value.as.keys[i];
@@ -244,14 +270,9 @@ static int printSub(Array value, double count, int offset){
                     }
                     break;
                 }
-                
-            case VAL_FUNC:{
-                printf("<fn %s>", value.as.funcs->name);
-                break;
-            }
-            default:
-                printf("dont know");
-                break;
+            // default:
+            //     printf("dont know");
+            //     break;
             }
             
         }
@@ -311,11 +332,23 @@ void printValue(Array value) {
     // printf("]");
 }
 
-Array* newFunction(){
-    Function f;
-    f.arity = 0;
-    f.name = NULL;
-    f.nameLength = 0;
-    initChunk(f.chunk);
-    return createArray(false, VAL_FUNC, 1, f);
+void printArrayType(Array arr){
+    #define quoteMarks(chars) "\""#chars"\""
+    #define caseAndPrint(type) case type: \
+                                printf(quoteMarks(type));\
+                                break
+    switch (arr.type)
+    {
+        caseAndPrint(VAL_INT);
+        caseAndPrint(VAL_DOUBLE);
+        caseAndPrint(VAL_CHAR);
+        caseAndPrint(VAL_BOOL);
+        caseAndPrint(VAL_KEY);
+        caseAndPrint(VAL_NULL);
+        caseAndPrint(VAL_UNKNOWN);
+    default:
+        break;
+    }
+    #undef quoteMarks
+    #undef caseAndPrint
 }

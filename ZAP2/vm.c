@@ -149,11 +149,9 @@ static Array* getArraySize(Array * a){
   // }
   // double b = (double)temp->count;
   // createNewVal(p.ptr, &b);
-  Array *res = addConstantArray(initEmptyArray(VAL_DOUBLE)).ptr;
-  changeArrayDims(res,0,0);
+  Array *res = addConstantArray(initEmptyArray(VAL_INT)).ptr;
   for (int i = 0; i < a->dims.count; i++){
-    changeArrayDims(res,a->dims.values[i],i);
-    res->dims.values[0] += 1;
+    createNewVal(res, &a->dims.values[i], true);
   }
   return res;
 }
@@ -189,8 +187,8 @@ static Array* compareArrays(Array* a, Array *b){
 
 
 static Array* binaryOp(Array* a, Array* b,char op){
-    double aDeep = a->dims.values[a->dims.count-1];
-    double bDeep = b->dims.values[b->dims.count-1];
+    // double aDeep = a->dims.values[a->dims.count-1];
+    // double bDeep = b->dims.values[b->dims.count-1];
     // if(!all(compareArrays(a->dims,b->dims))){
     //   runtimeError("array size mismatch for operation %c\n", op);
     //   return addConstantArray(initEmptyArray(VAL_NULL)).ptr;
@@ -233,19 +231,32 @@ static Array* binaryOp(Array* a, Array* b,char op){
 static void getArrayVal(){
   Array *indicies = pop();
   Array* val = pop();
-  Array *c = (Array*)initEmptyArray(VAL_DOUBLE);
+  Array *c = (Array*)initEmptyArray(VAL_INT);
  
   po p = addConstantArray(c);
 
   //printf("creating new array index is %d val ther is %g\n",ind,val->as.doubles[ind]);
   for (int i = 0; i < indicies->count; i++){
     switch (val->type){
-      case VAL_CHAR:
-        createNewVal(p.ptr,&val->as.chars[(int)indicies->as.doubles[i]],true);
+      case VAL_INT:
+        createNewVal(p.ptr,&val->as.ints[indicies->as.ints[i]],true);
         break;
       case VAL_DOUBLE:
-        createNewVal(p.ptr,&val->as.doubles[(int)indicies->as.doubles[i]],true);
+        createNewVal(p.ptr,&val->as.doubles[indicies->as.ints[i]],true);
         break;
+      case VAL_CHAR:
+        createNewVal(p.ptr,&val->as.chars[indicies->as.ints[i]],true);
+        break;
+      case VAL_BOOL:
+        createNewVal(p.ptr,&val->as.bools[indicies->as.ints[i]],true);
+        break;
+      case VAL_KEY:
+        createNewVal(p.ptr,&val->as.keys[indicies->as.ints[i]],true);
+        break;
+      case VAL_NULL:
+      case VAL_UNKNOWN:
+        //should be impossible
+        exit(1);
     }
     
   }
@@ -316,6 +327,10 @@ static InterpretResult run() {
     }
     case OP_GET_DIMS:
       push(getArraySize(pop()));
+      break;
+    case OP_GET_TYPE:
+      printArrayType(*pop());
+      printf("\n");
       break;
     case OP_ALL:{
       Array *res = initEmptyArray(VAL_DOUBLE);
