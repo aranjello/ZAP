@@ -7,7 +7,7 @@ to run a program download everything and then navigate to it. you need to have g
 
     make
 
-if you want to complile withoutgoing into the repl type 
+if you want to complile without going into the repl type 
 
     make release
 
