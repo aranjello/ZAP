@@ -278,9 +278,9 @@ Token scanToken() {
         case ';': return makeToken(TOKEN_SEMI);
         case ',': return makeToken(TOKEN_COMMA);
         case '.': return (arrayDepth == 0)?makeToken(TOKEN_DOT):arrayInterior();
-        case '-': return (arrayDepth == 0)?makeToken(TOKEN_MINUS):arrayInterior();
+        case '-': return (arrayDepth == 0)?makeToken(match('-')?TOKEN_REMOVE:TOKEN_MINUS):arrayInterior();
         case '#': return makeToken(TOKEN_POUND);
-        case '+': return makeToken(TOKEN_PLUS);
+        case '+': return makeToken(match('+')?TOKEN_APPEND:TOKEN_PLUS);
         case '/': return makeToken(TOKEN_FORWARD_SLASH);
         case '*': return makeToken(TOKEN_STAR);
         case '@': return makeToken(TOKEN_AT);

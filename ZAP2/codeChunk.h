@@ -33,8 +33,11 @@ typedef enum
     OP_GET_TYPE,
     //dyadic function ops
     OP_LOOKUP,
+    OP_PUSH_TO_ARR,
+    OP_POP_FROM_ARR,
     //monadic comparison ops
     OP_NOT,
+    OP_GET_NON_ZERO_INDICES,
     //dyadic comparison ops
     OP_COMPARE,
     OP_ALL,

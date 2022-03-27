@@ -15,18 +15,18 @@ typedef struct {
 } Parser;
 
 typedef enum {
-  PREC_NONE,
-  PREC_ASSIGNMENT, // = []
-  PREC_OR, // or
-  PREC_AND, // and
-  PREC_EQUALITY, // == !=
-  PREC_COMPARISON, // < > <= >=
-  PREC_ARRAY,
-  PREC_TERM, // + -
-  PREC_FACTOR, // * /
-  PREC_UNARY, // ! -
-  PREC_CALL, // . ()
-  PREC_PRIMARY
+     PREC_NONE,
+     PREC_ASSIGNMENT, // = []
+     PREC_OR, // or
+     PREC_AND, // and
+     PREC_EQUALITY, // == !=
+     PREC_COMPARISON, // < > <= >=
+     PREC_ARRAY,
+     PREC_TERM, // + -
+     PREC_FACTOR, // * /
+     PREC_UNARY, // ! -
+     PREC_CALL, // . ()
+     PREC_PRIMARY
 } Precedence;
 
 typedef void (*ParseFn)(bool canAssign);
@@ -257,13 +257,16 @@ static void binary(bool canAssign) {
   parsePrecedence((Precedence)(rule->precedence + 1));
 
   switch (operatorType) {
-    case TOKEN_PLUS:          emitByte(OP_ADD); break;
-    case TOKEN_MINUS:         emitByte(OP_SUBTRACT); break;
-    case TOKEN_STAR:          emitByte(OP_MULTIPLY); break;
-    case TOKEN_FORWARD_SLASH: emitByte(OP_DIVIDE); break;
-    case TOKEN_EQUAL_EQUAL: emitByte(OP_COMPARE); break;
-    case TOKEN_GREATER: emitByte(OP_GREATER); break;
-    case TOKEN_DOT: emitByte(OP_DOT_PROD); break;
+    case TOKEN_PLUS:          emitByte(OP_ADD);          break;
+    case TOKEN_APPEND:        emitByte(OP_PUSH_TO_ARR);  break;
+    case TOKEN_MINUS:         emitByte(OP_SUBTRACT);     break;
+    case TOKEN_REMOVE:        emitByte(OP_POP_FROM_ARR); break;
+    case TOKEN_STAR:          emitByte(OP_MULTIPLY);     break;
+    case TOKEN_FORWARD_SLASH: emitByte(OP_DIVIDE);       break;
+    case TOKEN_EQUAL_EQUAL:   emitByte(OP_COMPARE);      break;
+    case TOKEN_GREATER:       emitByte(OP_GREATER);      break;
+    case TOKEN_LESS:          emitByte(OP_LESS);         break;
+    case TOKEN_DOT:           emitByte(OP_DOT_PROD);     break;
 
     default: return; // Unreachable.
   }
@@ -288,13 +291,13 @@ static void varDeclaration() {
     
     emitBytes(OP_ARRAY, constant);
   }
-  consume(TOKEN_SEMI, "expected ';'");
+  consume(TOKEN_SEMI, "expected ';'1");
   defineVariable(global);
 }
 
 static void expressionStatement() {
   expression();
-  consume(TOKEN_SEMI, "expected ';'");
+  consume(TOKEN_SEMI, "expected ';'2");
   emitByte(OP_POP);
 }
 
@@ -396,16 +399,14 @@ static void emitLoop(int loopStart) {
 }
 
 static void whileStatement() {
+  consume(TOKEN_LEFT_PAREN, "')' opens while");
   int loopStart = currentChunk()->count;
   expression();
-  consume(TOKEN_SEMI, "Expect ')' after condition.");
+  consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
 
   int exitJump = emitJump(OP_JUMP_IF_FALSE);
   emitByte(OP_POP);
-  do{
-    statement();
-  } while (!check(TOKEN_SEMI));
-  advance();
+  statement();
   emitLoop(loopStart);
   patchJump(exitJump);
   emitByte(OP_POP);
@@ -490,6 +491,13 @@ static void grouping(bool canAssign){
   consume(TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
 }
 
+static void lookUpGrouping(bool canAssign){
+  UNUSED(canAssign);
+  expression();
+  consume(TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
+  emitByte(OP_LOOKUP);
+}
+
 /*
 Check if the input char is a letter
 @param c The char to check
@@ -527,7 +535,7 @@ static void parseArray(bool canAssign){
   changeArrayDims(currArray,0,currDepth-1);
   if(!hasChars(parser.previous)){
     ValueType numType = foundDecimal(parser.previous) ? VAL_DOUBLE : VAL_INT;
-    printf("numType is %s", numType == VAL_INT ? "VAL_INT" : "VAL_DOUBLE");
+    // printf("numType is %s", numType == VAL_INT ? "VAL_INT" : "VAL_DOUBLE");
     if(!parseSet){
       currArray->type = numType;
     }
@@ -580,11 +588,6 @@ static void parseArray(bool canAssign){
   //advance();
 }
 
-static void lookup(bool canAssign){
-  printf("attempting lookup\n");
-  parseArray(canAssign);
-  emitByte(OP_LOOKUP);
-}
 
 static void unary(bool canAssign) {
   UNUSED(canAssign);
@@ -696,59 +699,68 @@ static void closeArray(bool canAssign){
   }
 }
 
+
+static void lookup(bool canAssign){
+  printf("attempting lookup\n");
+  createMultiDim(canAssign);
+  emitByte(OP_LOOKUP);
+}
+
 static void chain(bool canAssign){
   UNUSED(canAssign);
   parsePrecedence(PREC_ASSIGNMENT);
 }
 
 ParseRule rules[] = {
-    [TOKEN_LEFT_PAREN]    = {grouping,       NULL,       PREC_NONE      },
-    [TOKEN_RIGHT_PAREN]   = {NULL,           NULL,       PREC_NONE      },
-    [TOKEN_LEFT_BRACE]    = {NULL,           NULL,       PREC_NONE      },
-    [TOKEN_RIGHT_BRACE]   = {NULL,           NULL,       PREC_NONE      },
-    [TOKEN_ARRAY]         = {parseArray,     lookup,     PREC_ARRAY     },
-    [TOKEN_LEFT_SQUARE]   = {createMultiDim, NULL,       PREC_NONE      },
-    [TOKEN_RIGHT_SQUARE]  = {NULL,           closeArray, PREC_ASSIGNMENT},
-    [TOKEN_COMMA]         = {NULL,           chain,      PREC_ASSIGNMENT},
-    [TOKEN_DOT]           = {NULL,           binary,     PREC_FACTOR    },
-    [TOKEN_MINUS]         = {unary,          binary,     PREC_TERM      },
-    [TOKEN_PLUS]          = {unary,          binary,     PREC_TERM      },
-    [TOKEN_SEMI]          = {NULL,           NULL,       PREC_NONE      },
-    [TOKEN_FORWARD_SLASH] = {NULL,           binary,     PREC_FACTOR    },
-    [TOKEN_STAR]          = {NULL,           binary,     PREC_FACTOR    },
-    [TOKEN_AMP]           = {unary,          NULL,       PREC_FACTOR    },
-    [TOKEN_BAR]           = {unary,          NULL,       PREC_FACTOR    },
-    [TOKEN_BANG]          = {NULL,           NULL,       PREC_NONE      },
-    [TOKEN_BANG_EQUAL]    = {NULL,           NULL,       PREC_NONE      },
-    [TOKEN_EQUAL]         = {NULL,           NULL,       PREC_NONE      },
-    [TOKEN_EQUAL_EQUAL]   = {NULL,           binary,     PREC_ASSIGNMENT},
-    [TOKEN_GREATER]       = {NULL,           binary,     PREC_ASSIGNMENT},
-    [TOKEN_GREATER_EQUAL] = {NULL,           NULL,       PREC_NONE      },
-    [TOKEN_LESS]          = {NULL,           NULL,       PREC_NONE      },
-    [TOKEN_LESS_EQUAL]    = {NULL,           NULL,       PREC_NONE      },
-    [TOKEN_IDENTIFIER]    = {variable,       NULL,       PREC_NONE      },
-    [TOKEN_POUND]         = {unary,          NULL,       PREC_NONE      },
-    //[TOKEN_STRING]        = {NULL,         NULL,       PREC_NONE      },
-    [TOKEN_NUMBER]        = {NULL,           NULL,       PREC_NONE      },
-    [TOKEN_CHAR]          = {NULL,           NULL,       PREC_NONE      },
-    [TOKEN_AND]           = {NULL,           and_,       PREC_NONE      },
-    [TOKEN_CLASS]         = {NULL,           NULL,       PREC_NONE      },
-    //[TOKEN_ELSE]          = {NULL,         NULL,       PREC_NONE      },
-    [TOKEN_FALSE]         = {NULL,           NULL,       PREC_NONE      },
-    //[TOKEN_FOR]           = {NULL,         NULL,       PREC_NONE      },
-    [TOKEN_FUN]           = {NULL,           NULL,       PREC_NONE      },
-    //[TOKEN_IF]            = {NULL,         NULL,       PREC_NONE      },
-    //[TOKEN_NIL]           = {NULL,         NULL,       PREC_NONE      },
-      [TOKEN_OR]          = {NULL,           or_,        PREC_NONE      },
-    //[TOKEN_PRINT]         = {NULL,         NULL,       PREC_NONE      },
-    //[TOKEN_RETURN]        = {NULL,         NULL,       PREC_NONE      },
-    //[TOKEN_SUPER]         = {NULL,         NULL,       PREC_NONE      },
-    //[TOKEN_THIS]          = {NULL,         NULL,       PREC_NONE      },
-    [TOKEN_TRUE]          = {NULL,           NULL,       PREC_NONE      },
-    //[TOKEN_VAR]           = {NULL,         NULL,       PREC_NONE      },
-    //[TOKEN_WHILE]         = {NULL,         NULL,       PREC_NONE      },
-    [TOKEN_ERROR]         = {NULL,           NULL,       PREC_NONE      },
-    [TOKEN_EOF]           = {NULL,           NULL,       PREC_NONE      },
+    [TOKEN_LEFT_PAREN]    = {grouping,       lookUpGrouping, PREC_ASSIGNMENT},
+    [TOKEN_RIGHT_PAREN]   = {NULL,           NULL,           PREC_NONE      },
+    [TOKEN_LEFT_BRACE]    = {NULL,           NULL,           PREC_NONE      },
+    [TOKEN_RIGHT_BRACE]   = {NULL,           NULL,           PREC_NONE      },
+    [TOKEN_ARRAY]         = {parseArray,     NULL,           PREC_ARRAY     },
+    [TOKEN_LEFT_SQUARE]   = {createMultiDim, lookup,         PREC_ASSIGNMENT},
+    [TOKEN_RIGHT_SQUARE]  = {NULL,           closeArray,     PREC_ASSIGNMENT},
+    [TOKEN_COMMA]         = {NULL,           chain,          PREC_ASSIGNMENT},
+    [TOKEN_DOT]           = {NULL,           binary,         PREC_FACTOR    },
+    [TOKEN_MINUS]         = {unary,          binary,         PREC_TERM      },
+    [TOKEN_REMOVE]        = {NULL,           binary,         PREC_ASSIGNMENT},
+    [TOKEN_PLUS]          = {unary,          binary,         PREC_TERM      },
+    [TOKEN_APPEND]        = {NULL,           binary,         PREC_ASSIGNMENT},
+    [TOKEN_SEMI]          = {NULL,           NULL,           PREC_NONE      },
+    [TOKEN_FORWARD_SLASH] = {NULL,           binary,         PREC_FACTOR    },
+    [TOKEN_STAR]          = {NULL,           binary,         PREC_FACTOR    },
+    [TOKEN_AMP]           = {unary,          NULL,           PREC_NONE      },
+    [TOKEN_BAR]           = {unary,          NULL,           PREC_NONE      },
+    [TOKEN_BANG]          = {NULL,           NULL,           PREC_NONE      },
+    [TOKEN_BANG_EQUAL]    = {NULL,           NULL,           PREC_NONE      },
+    [TOKEN_EQUAL]         = {NULL,           NULL,           PREC_NONE      },
+    [TOKEN_EQUAL_EQUAL]   = {NULL,           binary,         PREC_EQUALITY  },
+    [TOKEN_GREATER]       = {NULL,           binary,         PREC_COMPARISON},
+    [TOKEN_GREATER_EQUAL] = {NULL,           NULL,           PREC_NONE      },
+    [TOKEN_LESS]          = {NULL,           binary,         PREC_COMPARISON},
+    [TOKEN_LESS_EQUAL]    = {NULL,           NULL,           PREC_NONE      },
+    [TOKEN_IDENTIFIER]    = {variable,       NULL,           PREC_NONE      },
+    [TOKEN_POUND]         = {unary,          NULL,           PREC_NONE      },
+    //[TOKEN_STRING]        = {NULL,         NULL,           PREC_NONE      },
+    [TOKEN_NUMBER]        = {NULL,           NULL,           PREC_NONE      },
+    [TOKEN_CHAR]          = {NULL,           NULL,           PREC_NONE      },
+    [TOKEN_AND]           = {NULL,           and_,           PREC_NONE      },
+    [TOKEN_CLASS]         = {NULL,           NULL,           PREC_NONE      },
+    //[TOKEN_ELSE]          = {NULL,         NULL,           PREC_NONE      },
+    [TOKEN_FALSE]         = {NULL,           NULL,           PREC_NONE      },
+    //[TOKEN_FOR]           = {NULL,         NULL,           PREC_NONE      },
+    [TOKEN_FUN]           = {NULL,           NULL,           PREC_NONE      },
+    //[TOKEN_IF]            = {NULL,         NULL,           PREC_NONE      },
+    //[TOKEN_NIL]           = {NULL,         NULL,           PREC_NONE      },
+      [TOKEN_OR]          = {NULL,           or_,            PREC_NONE      },
+    //[TOKEN_PRINT]         = {NULL,         NULL,           PREC_NONE      },
+    //[TOKEN_RETURN]        = {NULL,         NULL,           PREC_NONE      },
+    //[TOKEN_SUPER]         = {NULL,         NULL,           PREC_NONE      },
+    //[TOKEN_THIS]          = {NULL,         NULL,           PREC_NONE      },
+    [TOKEN_TRUE]          = {NULL,           NULL,           PREC_NONE      },
+    //[TOKEN_VAR]           = {NULL,         NULL,           PREC_NONE      },
+    //[TOKEN_WHILE]         = {NULL,         NULL,           PREC_NONE      },
+    [TOKEN_ERROR]         = {NULL,           NULL,           PREC_NONE      },
+    [TOKEN_EOF]           = {NULL,           NULL,           PREC_NONE      },
 };
 
 static void parsePrecedence(Precedence precedence) {
@@ -759,7 +771,7 @@ static void parsePrecedence(Precedence precedence) {
     return;
   }
 
-  bool canAssign = precedence <= PREC_ASSIGNMENT;
+  bool canAssign = precedence <=     PREC_ASSIGNMENT;
   prefixRule(canAssign);
 
   while (precedence <= getRule(parser.current.type)->precedence) {

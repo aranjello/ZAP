@@ -99,8 +99,12 @@ int disassembleInstruction(VM* vm,Chunk* chunk, int offset) {
     case OP_POP:
       return simpleInstruction("OP_POP", offset);
     //Math ops
+     case OP_PRE_ADD:
+      return simpleInstruction("OP_PRE_ADD", offset);
     case OP_ADD:
       return simpleInstruction("OP_ADD", offset);
+    case OP_PUSH_TO_ARR:
+      return simpleInstruction("OP_PUSH_TO_ARR", offset);
     case OP_SUBTRACT:
       return simpleInstruction("OP_SUBTRACT", offset);
     case OP_MULTIPLY:
@@ -143,6 +147,8 @@ int disassembleInstruction(VM* vm,Chunk* chunk, int offset) {
       return simpleInstruction("OP_COMPARE", offset);
     case OP_GREATER:
       return simpleInstruction("OP_GREATER", offset);
+    case OP_LESS:
+      return simpleInstruction("OP_LESS", offset);
     case OP_ALL:
       return simpleInstruction("OP_ALL", offset);
     case OP_ANY:

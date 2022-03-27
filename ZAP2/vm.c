@@ -125,7 +125,7 @@ static binaryOpType determineBinOpType(Array leftSide, Array rightSide){
       return OP_TYPE_ERROR;
     }
   }else{
-    if(leftSide.dims.count != 0 && rightSide.dims.count != 0){
+    if(leftSide.dims.count + rightSide.dims.count == 1){
       if(leftSide.dims.count == 1 && leftSide.dims.values[0] == 1)
         return LEFT_ONE_TO_ALL;
       if(rightSide.dims.count == 1 && rightSide.dims.values[0] == 1)
@@ -198,108 +198,199 @@ static Array* getArraySize(Array * a){
   return res;
 }
 
-static void* genericAdd(void* a, void* b, void* res, ValueType t){
+static void genericAdd(void* a, void* b, void* res, ValueType t){
+  #define GENERIC_ADDER(type) *(type*)res = *(type*)a + *(type*)b
   switch (t)
   {
-  case VAL_INT:{
-    *(int*)res = *(int *)a + *(int *)b;
-    break;
+    case VAL_INT:{
+      GENERIC_ADDER(int);
+      break;
+    }
+    case VAL_DOUBLE:{
+      *(double *)res = *(double *)a + *(double *)b;
+      break;
+    }
   }
-  default:
-    break;
-  }
+  #undef GENERIC_ADDER
 }
 
-static void* genericSubtract(void* a, void* b, ValueType t){
+static void genericSubtract(void* a, void* b, void* res, ValueType t){
+  #define GENERIC_SUBTRACTER(type) *(type*)res = *(type*)a - *(type*)b
   switch (t)
   {
-  case VAL_INT:{
-    int val = *(int *)a - *(int *)b;
-    return &val;
+    case VAL_INT:{
+      GENERIC_SUBTRACTER(int);
+      break;
+    }
+    case VAL_DOUBLE:{
+      GENERIC_SUBTRACTER(double);
+      break;
+    }
   }
-  default:
-    break;
-  }
+  #undef GENERIC_SUBTRACTER
 }
 
-static void* genericEqual(void* a, void* b, ValueType t){
+static void genericMultiply(void* a, void* b, void* res, ValueType t){
+  #define GENERIC_MULTIPLIER(type) *(type*)res = *(type*)a * *(type*)b
   switch (t)
   {
-  case VAL_INT:{
-    int val = *(int *)a == *(int *)b;
-    return &val;
+    case VAL_INT:{
+      GENERIC_MULTIPLIER(int);
+      break;
+    }
+    case VAL_DOUBLE:{
+      GENERIC_MULTIPLIER(double);
+      break;
+    }
   }
-  default:
-    break;
-  }
+  #undef GENERIC_MULTIPLIER
 }
 
-static void* genericGreater(void* a, void* b, ValueType t){
+static void genericDivide(void* a, void* b, void* res, ValueType t){
+  #define GENERIC_DIVIDER(type) *(type*)res = *(type*)a / *(type*)b
   switch (t)
   {
-  case VAL_INT:{
-    int val = *(int *)a > *(int *)b;
-    return &val;
+    case VAL_INT:{
+      GENERIC_DIVIDER(int);
+      break;
+    }
+    case VAL_DOUBLE:{
+      GENERIC_DIVIDER(double);
+      break;
+    }
   }
-  default:
-    break;
-  }
+  #undef GENERIC_DIVIDER
 }
 
-static void* genericLess(void* a, void* b, ValueType t){
+static void* genericEqual(void* a, void* b, void* res, ValueType t){
+  #define GENERIC_EQUALIZER(type) *(int*)res = *(type*)a == *(type*)b
   switch (t)
   {
-  case VAL_INT:{
-    int val = *(int *)a < *(int *)b;
-    return &val;
+    case VAL_INT:{
+      GENERIC_EQUALIZER(int);
+      break;
+    }
+    case VAL_DOUBLE:{
+      GENERIC_EQUALIZER(double);
+      break;
+    }
   }
-  default:
-    break;
+  #undef GENERIC_EQUALIZER
+}
+
+static void genericGreater(void* a, void* b, void* res, ValueType t){
+  printf("comparing\n");
+#define GENERIC_GREATER(type) *(int*)res = *(type*)a > *(type*)b
+  switch (t)
+  {
+    case VAL_INT:{
+      GENERIC_GREATER(int);
+      break;
+    }
+    case VAL_DOUBLE:{
+      GENERIC_GREATER(double);
+      break;
+    }
   }
+  #undef GENERIC_GREATER
+}
+
+static void genericLess(void* a, void* b, void* res, ValueType t){
+  
+#define GENERIC_LESSER(type) *(int*)res = *(type*)a < *(type*)b
+  switch (t)
+  {
+    case VAL_INT:{
+      GENERIC_LESSER(int);
+      break;
+    }
+    case VAL_DOUBLE:{
+      GENERIC_LESSER(double);
+      break;
+    }
+  }
+  #undef GENERIC_LESSER
 }
 
 static Array* oneToOneBinaryOp(Array* a, Array *b, char compOp){
-  Array *res = addConstantArray(initEmptyArray(a->type)).ptr;
+  Array *res;
+  switch (compOp)
+  {
+    case '=':
+    case '<':
+    case '>':
+      res = addConstantArray(initEmptyArray(VAL_INT)).ptr;
+      break;
+    default:
+      res = addConstantArray(initEmptyArray(a->type)).ptr;
+  }
+   
   copyArrayDims(res, a);
   for (int i = 0; i < a->count; i++){
     void *aVal;
     void *bVal;
     void *retVal;
-    switch(res->type){
+    switch (res->type)
+    {
+    case VAL_INT:
+       retVal = malloc(sizeof(int));
+      break;
+    case VAL_DOUBLE:
+      retVal = malloc(sizeof(double));
+      break;
+    }
+    switch(a->type){
       case VAL_INT:
-        retVal = malloc(sizeof(int));
         aVal = &a->as.ints[i];
         bVal = &b->as.ints[i];
         break;
       case VAL_DOUBLE:
+        
         aVal = &a->as.doubles[i];
         bVal = &b->as.doubles[i];
         break;
     }
     switch(compOp){
       case '+':
-        genericAdd(aVal, bVal, retVal, res->type);
-        createNewVal(res,retVal, false);
+        genericAdd(aVal, bVal, retVal, a->type);
         break;
       case '-':
-        createNewVal(res,genericSubtract(aVal,bVal,res->type), false);
+        genericSubtract(aVal, bVal, retVal, a->type);
+        break;
+      case '*':
+        genericMultiply(aVal, bVal, retVal, a->type);
+        break;
+      case '/':
+        genericDivide(aVal, bVal, retVal, a->type);
         break;
       case '=':
-        createNewVal(res,genericEqual(aVal,bVal,res->type), false);
+        genericEqual(aVal, bVal, retVal, a->type);
         break;
       case '<':
-        createNewVal(res,genericGreater(aVal,bVal,res->type), false);
-        break;
+        genericLess(aVal, bVal, retVal, a->type); 
+       break;
       case '>':
-        createNewVal(res,genericLess(aVal,bVal,res->type), false);
-        break;
+        genericGreater(aVal, bVal, retVal, a->type);  
+      break;
     }
+    createNewVal(res,retVal, false);
+    free(retVal);
   }
   return res;
 }
 
-static Array* oneToAllBinaryOp(Array* one, Array* all, char compOp){
-  Array *res = addConstantArray(initEmptyArray(one->type)).ptr;
+static Array* oneToAllBinaryOp(Array* one, Array* all,bool swapped, char compOp){
+  Array *res;
+  switch (compOp)
+  {
+    case '=':
+    case '<':
+    case '>':
+      res = addConstantArray(initEmptyArray(VAL_INT)).ptr;
+      break;
+    default:
+      res = addConstantArray(initEmptyArray(all->type)).ptr;
+  }
   copyArrayDims(res, all);
   for (int i = 0; i < all->count; i++){
     void *leftVal;
@@ -307,10 +398,29 @@ static Array* oneToAllBinaryOp(Array* one, Array* all, char compOp){
     void *retVal;
     switch(res->type){
       case VAL_INT:
+        retVal = malloc(sizeof(int));
+        break;
+      case VAL_DOUBLE:
+        retVal = malloc(sizeof(double));
+        break;
+    }
+    switch(all->type){
+      case VAL_INT:
+        
+        if(swapped){
+          rightVal = &one->as.ints[0];
+          leftVal = &all->as.ints[i];
+          break;
+        }
         leftVal = &one->as.ints[0];
         rightVal = &all->as.ints[i];
         break;
       case VAL_DOUBLE:
+        if(swapped){
+          rightVal = &one->as.doubles[0];
+          leftVal = &all->as.doubles[i];
+          break;
+        }
         leftVal = &one->as.doubles[0];
         rightVal = &all->as.doubles[i];
         break;
@@ -318,22 +428,30 @@ static Array* oneToAllBinaryOp(Array* one, Array* all, char compOp){
     switch(compOp){
       case '+':
         genericAdd(leftVal, rightVal, retVal, res->type);
-        createNewVal(res,retVal, false);
         break;
       case '-':
-        createNewVal(res,genericSubtract(leftVal,rightVal,res->type), false);
+        genericSubtract(leftVal, rightVal, retVal, res->type);
+        break;
+      case '*':
+        genericMultiply(leftVal, rightVal, retVal, res->type);
+        break;
+      case '/':
+        genericDivide(leftVal, rightVal, retVal, res->type);
         break;
       case '=':
-        createNewVal(res,genericEqual(leftVal,rightVal,res->type), false);
+        genericEqual(leftVal, rightVal, retVal, res->type);
         break;
       case '<':
-        createNewVal(res,genericGreater(leftVal,rightVal,res->type), false);
-        break;
+        genericLess(leftVal, rightVal, retVal, res->type); 
+       break;
       case '>':
-        createNewVal(res,genericLess(leftVal,rightVal,res->type), false);
-        break;
+        genericGreater(leftVal, rightVal, retVal, res->type);  
+      break;
     }
+    createNewVal(res,retVal, false);
+    free(retVal);
   }
+  
   return res;
 }
 
@@ -343,9 +461,9 @@ static Array* binaryOp(Array* leftSide, Array* rightSide,char op){
     case ONE_TO_ONE:
       return oneToOneBinaryOp(leftSide, rightSide, op);
     case LEFT_ONE_TO_ALL:
-      return oneToAllBinaryOp(leftSide, rightSide, op);
+      return oneToAllBinaryOp(leftSide, rightSide,false, op);
     case RIGHT_ONE_TO_ALL:
-      return oneToAllBinaryOp(rightSide, leftSide, op);
+      return oneToAllBinaryOp(rightSide, leftSide,true, op);
     case OP_TYPE_ERROR:
       return leftSide;
   }
@@ -413,17 +531,36 @@ static bool isTruthy(Array array){
 
 static Array* sumDown(Array* arr, int depth){
   depth = arr->dims.count-1;
-  Array* res = addConstantArray(initEmptyArray(VAL_DOUBLE)).ptr;
-  for (int i = 0; i < arr->dims.count; i++){
-    changeArrayDims(res,arr->dims.values[i],i);
-  }
+  Array* res = addConstantArray(initEmptyArray(arr->type)).ptr;
+  copyArrayDims(res, arr);
   for(int i = 0; i < arr->count; i += arr->dims.values[depth]){
-    double new = 0;
-    
-    for(int j = 0;j < arr->dims.values[depth]; j++){
-      new += arr->as.doubles[i+j];
+    void *new;
+    switch (res->type)
+    {
+      case VAL_INT:
+        new = malloc(sizeof(int));
+        *(int *)new = 0;
+        break;
+      case VAL_DOUBLE:
+        new = malloc(sizeof(double));
+        *(double *)new = 0;
+        break;
     }
-    createNewVal(res,&new,false);
+
+    for(int j = 0;j < arr->dims.values[depth]; j++){
+      switch(res->type){
+        case VAL_INT:
+          *(int*)new += arr->as.ints[i+j];
+          break;
+        case VAL_DOUBLE:
+          *(double*)new += arr->as.doubles[i+j];
+          break;
+      }
+      
+    }
+    createNewVal(res,new,false);
+    
+    free(new);
   }
   if(arr->dims.count != 1)
     res->dims.count--;
@@ -496,13 +633,20 @@ static InterpretResult run() {
       break;
     }
     case OP_GREATER:{
-      Array* res = addConstantArray(initEmptyArray(VAL_DOUBLE)).ptr;
-      
-      double val = 1;
-      if(pop()->as.doubles[0] > pop()->as.doubles[0]){
-        val = 0;
+      Array *res = binaryOp(pop(), pop(),'>');
+      if (res->type == VAL_NULL){
+        runtimeError("array size mismatch for compare operation\n");
+        return INTERPRET_RUNTIME_ERROR;
       }
-      createNewVal(res,&val,true);
+      push(res);
+      break;
+    }
+    case OP_LESS:{
+      Array *res = binaryOp(pop(), pop(),'<');
+      if (res->type == VAL_NULL){
+        runtimeError("array size mismatch for compare operation\n");
+        return INTERPRET_RUNTIME_ERROR;
+      }
       push(res);
       break;
     }
@@ -533,13 +677,7 @@ static InterpretResult run() {
           break;
       }
       case OP_PRE_ADD:{
-        double val = 0;
-        Array *a = pop();
-        for (int i = 0; i < a->count; i++){
-          val += a->as.doubles[i];
-        }
-        a->as.doubles[0] = val;
-        a->count = 1;
+        Array *a = sumDown(pop(),0);
         push(a);
         break;
       }
@@ -577,17 +715,38 @@ static InterpretResult run() {
         }
         break;
       }
-      case OP_ADD:
-        push(binaryOp(pop(), pop(), '+'));
-        break;
-      case OP_SUBTRACT: push(binaryOp(pop(),pop(),'-')); break;
-      case OP_MULTIPLY: push(binaryOp(pop(),pop(),'*')); break;
-      case OP_DIVIDE:   push(binaryOp(pop(),pop(),'/')); break;
-      case OP_NEGATE:{
-        if (peek(0)->type != VAL_DOUBLE) {
-          runtimeError("Operand must be a number.");
-          return INTERPRET_RUNTIME_ERROR;
+      case OP_ADD:      push(binaryOp(pop(), pop(), '+')); break;
+      case OP_SUBTRACT: push(binaryOp(pop(),pop(),'-'));   break;
+      case OP_MULTIPLY: push(binaryOp(pop(),pop(),'*'));   break;
+      case OP_DIVIDE:   push(binaryOp(pop(),pop(),'/'));   break;
+      case OP_PUSH_TO_ARR:{
+        Array *rightArr = pop();
+        Array *leftArr = pop();
+        for (int i = 0; i < rightArr->count; i++){
+          switch (leftArr->type)
+          {
+          case VAL_INT:
+            createNewVal(leftArr, &rightArr->as.ints[i], true);
+            break;
+          case VAL_DOUBLE:
+            createNewVal(leftArr, &rightArr->as.doubles[i], true);
+            break;
+          case VAL_CHAR:
+            createNewVal(leftArr, &rightArr->as.chars[i], true);
+            break;
+          }
+          
         }
+        push(leftArr);
+        break;
+      }
+        case OP_NEGATE:
+        {
+          if (peek(0)->type != VAL_DOUBLE)
+          {
+            runtimeError("Operand must be a number.");
+            return INTERPRET_RUNTIME_ERROR;
+          }
           Array* arr = pop();
           for (int i = 0; i < arr->count; i++)
           {
