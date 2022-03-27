@@ -11,10 +11,10 @@
 #define UNUSED(x) (void)x
 
 //Allows for printout of token creation while compiling code
- #define DEBUG_TOKEN_CREATION
+//  #define DEBUG_TOKEN_CREATION
 
 //Allows for print out of trace execution while running code
- #define DEBUG_TRACE_EXECUTION
+//  #define DEBUG_TRACE_EXECUTION
 
 //Allows for print out of garbage collection while running code
 // #define DEBUG_GARBAGE_COLLECTION

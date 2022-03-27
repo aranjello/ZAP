@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
+#include <time.h>
 
 #include "common.h"
 #include "vm.h"
@@ -125,11 +126,12 @@ static binaryOpType determineBinOpType(Array leftSide, Array rightSide){
       return OP_TYPE_ERROR;
     }
   }else{
-    if(leftSide.dims.count + rightSide.dims.count == 1){
+    if(leftSide.dims.count + rightSide.dims.count <= 2){
       if(leftSide.dims.count == 1 && leftSide.dims.values[0] == 1)
         return LEFT_ONE_TO_ALL;
       if(rightSide.dims.count == 1 && rightSide.dims.values[0] == 1)
         return RIGHT_ONE_TO_ALL;
+      return OP_TYPE_ERROR;
     }
     for (int i = 0; i < leftSide.dims.count; i++){
       if(leftSide.dims.values[i] != rightSide.dims.values[i])
@@ -274,12 +276,15 @@ static void* genericEqual(void* a, void* b, void* res, ValueType t){
       GENERIC_EQUALIZER(double);
       break;
     }
+    case VAL_CHAR:{
+      GENERIC_EQUALIZER(char);
+      break;
+    }
   }
   #undef GENERIC_EQUALIZER
 }
 
 static void genericGreater(void* a, void* b, void* res, ValueType t){
-  printf("comparing\n");
 #define GENERIC_GREATER(type) *(int*)res = *(type*)a > *(type*)b
   switch (t)
   {
@@ -349,6 +354,11 @@ static Array* oneToOneBinaryOp(Array* a, Array *b, char compOp){
         aVal = &a->as.doubles[i];
         bVal = &b->as.doubles[i];
         break;
+      case VAL_CHAR:
+        
+        aVal = &a->as.chars[i];
+        bVal = &b->as.chars[i];
+        break;
     }
     switch(compOp){
       case '+':
@@ -403,6 +413,7 @@ static Array* oneToAllBinaryOp(Array* one, Array* all,bool swapped, char compOp)
       case VAL_DOUBLE:
         retVal = malloc(sizeof(double));
         break;
+      
     }
     switch(all->type){
       case VAL_INT:
@@ -424,28 +435,37 @@ static Array* oneToAllBinaryOp(Array* one, Array* all,bool swapped, char compOp)
         leftVal = &one->as.doubles[0];
         rightVal = &all->as.doubles[i];
         break;
+      case VAL_CHAR:
+        if(swapped){
+          rightVal = &one->as.chars[0];
+          leftVal = &all->as.chars[i];
+          break;
+        }
+        leftVal = &one->as.chars[0];
+        rightVal = &all->as.chars[i];
+        break;
     }
     switch(compOp){
       case '+':
-        genericAdd(leftVal, rightVal, retVal, res->type);
+        genericAdd(leftVal, rightVal, retVal, all->type);
         break;
       case '-':
-        genericSubtract(leftVal, rightVal, retVal, res->type);
+        genericSubtract(leftVal, rightVal, retVal, all->type);
         break;
       case '*':
-        genericMultiply(leftVal, rightVal, retVal, res->type);
+        genericMultiply(leftVal, rightVal, retVal, all->type);
         break;
       case '/':
-        genericDivide(leftVal, rightVal, retVal, res->type);
+        genericDivide(leftVal, rightVal, retVal, all->type);
         break;
       case '=':
-        genericEqual(leftVal, rightVal, retVal, res->type);
+        genericEqual(leftVal, rightVal, retVal, all->type);
         break;
       case '<':
-        genericLess(leftVal, rightVal, retVal, res->type); 
+        genericLess(leftVal, rightVal, retVal, all->type); 
        break;
       case '>':
-        genericGreater(leftVal, rightVal, retVal, res->type);  
+        genericGreater(leftVal, rightVal, retVal, all->type);  
       break;
     }
     createNewVal(res,retVal, false);
@@ -469,31 +489,48 @@ static Array* binaryOp(Array* leftSide, Array* rightSide,char op){
   }
 }
 
+static Array *convertArray(Array *a, ValueType t){
+    Array *ret = addConstantArray(initEmptyArray(t)).ptr;
+    copyArrayDims(ret, a);
+    for (int i = 0; i < a->count; i++){
+      switch (a->type)
+      {
+      case VAL_INT:
+        createNewVal(ret, &a->as.ints[i], false);
+        break;
+      case VAL_DOUBLE:{
+        int val = a->as.doubles[i];
+        createNewVal(ret, &val, false);
+        break;
+      }
+      default:
+        break;
+      }
+    }
+    return ret;
+}
 
-static void getArrayVal(){
-  Array *indicies = pop();
-  Array* val = pop();
-  Array *c = (Array*)initEmptyArray(VAL_INT);
- 
-  po p = addConstantArray(c);
-
-  //printf("creating new array index is %d val ther is %g\n",ind,val->as.doubles[ind]);
+static Array* getArrayVal(Array *leftVal, Array *rightVal)
+{
+  Array *indicies = convertArray(rightVal,VAL_INT);
+  Array* val = leftVal;
+  Array *ret = addConstantArray(initEmptyArray(val->type)).ptr;
   for (int i = 0; i < indicies->count; i++){
     switch (val->type){
       case VAL_INT:
-        createNewVal(p.ptr,&val->as.ints[indicies->as.ints[i]],true);
+        createNewVal(ret,&val->as.ints[indicies->as.ints[i]],true);
         break;
       case VAL_DOUBLE:
-        createNewVal(p.ptr,&val->as.doubles[indicies->as.ints[i]],true);
+        createNewVal(ret,&val->as.doubles[indicies->as.ints[i]],true);
         break;
       case VAL_CHAR:
-        createNewVal(p.ptr,&val->as.chars[indicies->as.ints[i]],true);
+        createNewVal(ret,&val->as.chars[indicies->as.ints[i]],true);
         break;
       case VAL_BOOL:
-        createNewVal(p.ptr,&val->as.bools[indicies->as.ints[i]],true);
+        createNewVal(ret,&val->as.bools[indicies->as.ints[i]],true);
         break;
       case VAL_KEY:
-        createNewVal(p.ptr,&val->as.keys[indicies->as.ints[i]],true);
+        createNewVal(ret,&val->as.keys[indicies->as.ints[i]],true);
         break;
       case VAL_NULL:
       case VAL_UNKNOWN:
@@ -506,7 +543,7 @@ static void getArrayVal(){
   //printf("arr created val is %g\n",newArr->as.doubles[0]);
   trashArray(indicies);
   trashArray(val);
-  push(p.ptr);
+  return ret;
 }
 
 //0 NULL and false all evaluate to false all other values are true
@@ -569,6 +606,23 @@ static Array* sumDown(Array* arr, int depth){
   return res;
 }
 
+static Array* getIndices(Array* a){
+  Array *ret = addConstantArray(initEmptyArray(VAL_INT)).ptr;
+  for (int i = 0; i < a->count; i++){
+    switch(a->type){
+      case VAL_INT:
+        if(a->as.ints[i] != 0)
+          createNewVal(ret, &i, true);
+        break;
+      case VAL_DOUBLE:
+        if(a->as.doubles[i] != 0)
+          createNewVal(ret, &i, true);
+        break;
+    }
+  }
+  return ret;
+}
+
 static InterpretResult run() {
 #define READ_BYTE() (*vm.ip++)
 #define READ_CONSTANT() (vm.constantArrays.values[READ_BYTE()])
@@ -593,7 +647,7 @@ static InterpretResult run() {
     uint8_t instruction;
     switch (instruction = READ_BYTE()) {
     case OP_LOOKUP:{
-      getArrayVal();
+      push(getArrayVal(pop(),pop()));
       break;
     }
     case OP_GET_DIMS:
@@ -719,6 +773,7 @@ static InterpretResult run() {
       case OP_SUBTRACT: push(binaryOp(pop(),pop(),'-'));   break;
       case OP_MULTIPLY: push(binaryOp(pop(),pop(),'*'));   break;
       case OP_DIVIDE:   push(binaryOp(pop(),pop(),'/'));   break;
+      case OP_GET_NON_ZERO_INDICES: push(getIndices(pop()));break;
       case OP_PUSH_TO_ARR:{
         Array *rightArr = pop();
         Array *leftArr = pop();
@@ -769,7 +824,24 @@ static InterpretResult run() {
         vm.stack[slot] = peek(0);
         break;
       }
+      case OP_RANDOM: {
+        Array *numRand = pop();
+        Array* randArray = addConstantArray(initEmptyArray(VAL_DOUBLE)).ptr;
+        time_t t = time(0);
+        srand(t);
+        for (int i = 0; i < numRand->as.ints[0]; i++){
+          double val = rand();
+          val /= RAND_MAX;
+          createNewVal(randArray, &val, true);
+        }
+        push(randArray);
+        break;
+      }
       case OP_PRINT: {
+        printValue(*pop());
+        break;
+      }
+      case OP_PRINT_LN: {
         printValue(*pop());
         printf("\n");
         break;

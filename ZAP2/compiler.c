@@ -307,6 +307,12 @@ static void printStatement() {
   emitByte(OP_PRINT);
 }
 
+static void printlnStatement() {
+  expression();
+  consume(TOKEN_SEMI, "expected semicolon\n");
+  emitByte(OP_PRINT_LN);
+}
+
 static void getValTypeStatement() {
   expression();
   emitByte(OP_GET_TYPE);
@@ -467,7 +473,9 @@ static void block() {
 static void statement() {
   if (match(TOKEN_BANG)) {
     printStatement();
-  } else if(match(TOKEN_AT)){
+  }else if (match(TOKEN_BANG_BANG)) {
+    printlnStatement();
+  }else if(match(TOKEN_AT)){
     getValTypeStatement();
   }else if (match(TOKEN_LEFT_BRACE)) {
     beginScope();
@@ -578,8 +586,8 @@ static void parseArray(bool canAssign){
       createNewVal(currArray, (char*)&arr[0],!parseSet);
       arr++;
     }
-    char close = '\0';
-    createNewVal(currArray, &close,!parseSet);
+    // char close = '\0';
+    // createNewVal(currArray, &close,!parseSet);
     currArray->hash = hashString(currArray->as.chars,currArray->count);
   }
   parseSet = true;
@@ -599,15 +607,13 @@ static void unary(bool canAssign) {
 
   // Emit the operator instruction.
   switch (operatorType) {
-    case TOKEN_PLUS:
-      emitByte(OP_PRE_ADD);
-      break;
-    case TOKEN_MINUS: emitByte(OP_NEGATE); break;
-    case TOKEN_POUND: emitByte(OP_GET_DIMS); break;
-    case TOKEN_AMP: emitByte(OP_ALL); break;
-    case TOKEN_BAR:
-      emitByte(OP_ANY);
-      break;
+    case TOKEN_PLUS:    emitByte(OP_PRE_ADD);              break;
+    case TOKEN_MINUS:   emitByte(OP_NEGATE);               break;
+    case TOKEN_POUND:   emitByte(OP_GET_DIMS);             break;
+    case TOKEN_AMP:     emitByte(OP_ALL);                  break;
+    case TOKEN_PERCENT: emitByte(OP_GET_NON_ZERO_INDICES); break;
+    case TOKEN_BAR:     emitByte(OP_ANY);                  break;
+    case TOKEN_COMMA:   emitByte(OP_RANDOM);                  break;
     default: return; // Unreachable.
   }
 }
@@ -719,7 +725,7 @@ ParseRule rules[] = {
     [TOKEN_ARRAY]         = {parseArray,     NULL,           PREC_ARRAY     },
     [TOKEN_LEFT_SQUARE]   = {createMultiDim, lookup,         PREC_ASSIGNMENT},
     [TOKEN_RIGHT_SQUARE]  = {NULL,           closeArray,     PREC_ASSIGNMENT},
-    [TOKEN_COMMA]         = {NULL,           chain,          PREC_ASSIGNMENT},
+    [TOKEN_COMMA]         = {unary,           chain,          PREC_ASSIGNMENT},
     [TOKEN_DOT]           = {NULL,           binary,         PREC_FACTOR    },
     [TOKEN_MINUS]         = {unary,          binary,         PREC_TERM      },
     [TOKEN_REMOVE]        = {NULL,           binary,         PREC_ASSIGNMENT},
@@ -729,6 +735,7 @@ ParseRule rules[] = {
     [TOKEN_FORWARD_SLASH] = {NULL,           binary,         PREC_FACTOR    },
     [TOKEN_STAR]          = {NULL,           binary,         PREC_FACTOR    },
     [TOKEN_AMP]           = {unary,          NULL,           PREC_NONE      },
+    [TOKEN_PERCENT]       = {unary,          NULL,           PREC_NONE      },
     [TOKEN_BAR]           = {unary,          NULL,           PREC_NONE      },
     [TOKEN_BANG]          = {NULL,           NULL,           PREC_NONE      },
     [TOKEN_BANG_EQUAL]    = {NULL,           NULL,           PREC_NONE      },

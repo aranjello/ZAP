@@ -12,7 +12,7 @@ typedef enum {
     TOKEN_BANG_EQUAL,TOKEN_EQUAL_EQUAL,
     //function tokens
     TOKEN_POUND,TOKEN_DOLLAR,TOKEN_APPEND,TOKEN_REMOVE,
-    TOKEN_BANG,TOKEN_AT,
+    TOKEN_BANG,TOKEN_BANG_BANG,TOKEN_AT,
     //control tokens
     TOKEN_QUESTION,TOKEN_SEMI,TOKEN_AMP,
     //Grouping tokens

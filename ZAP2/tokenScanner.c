@@ -282,6 +282,7 @@ Token scanToken() {
         case '#': return makeToken(TOKEN_POUND);
         case '+': return makeToken(match('+')?TOKEN_APPEND:TOKEN_PLUS);
         case '/': return makeToken(TOKEN_FORWARD_SLASH);
+        case '%': return makeToken(TOKEN_PERCENT);
         case '*': return makeToken(TOKEN_STAR);
         case '@': return makeToken(TOKEN_AT);
         case '?': return makeToken(
@@ -293,7 +294,7 @@ Token scanToken() {
           return makeToken(
               match('|') ? TOKEN_OR : TOKEN_BAR);
         case '!':
-        return makeToken(
+        return makeToken(match('!')?TOKEN_BANG_BANG:
             match('=') ? TOKEN_BANG_EQUAL : TOKEN_BANG);
         case '=':
         return makeToken(

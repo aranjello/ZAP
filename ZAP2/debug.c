@@ -137,6 +137,8 @@ int disassembleInstruction(VM* vm,Chunk* chunk, int offset) {
     //function ops
     case OP_LOOKUP:
       return simpleInstruction("OP_LOOKUP", offset);
+    case OP_GET_NON_ZERO_INDICES:
+      return simpleInstruction("OP_GET_NON_ZERO_INDICES", offset);
     case OP_PRINT:
       return simpleInstruction("OP_PRINT", offset);
     case OP_GET_TYPE:

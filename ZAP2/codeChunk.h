@@ -29,6 +29,7 @@ typedef enum
     OP_JUMP,
     //monadic function ops
     OP_PRINT,
+    OP_PRINT_LN,
     OP_GET_DIMS,
     OP_GET_TYPE,
     //dyadic function ops
@@ -38,6 +39,7 @@ typedef enum
     //monadic comparison ops
     OP_NOT,
     OP_GET_NON_ZERO_INDICES,
+    OP_RANDOM,
     //dyadic comparison ops
     OP_COMPARE,
     OP_ALL,
