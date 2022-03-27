@@ -16,16 +16,16 @@ typedef struct {
 
 typedef enum {
   PREC_NONE,
-  PREC_ASSIGNMENT,  // = []
-  PREC_OR,          // or
-  PREC_AND,         // and
-  PREC_EQUALITY,    // == !=
-  PREC_COMPARISON,  // < > <= >=
+  PREC_ASSIGNMENT, // = []
+  PREC_OR, // or
+  PREC_AND, // and
+  PREC_EQUALITY, // == !=
+  PREC_COMPARISON, // < > <= >=
   PREC_ARRAY,
-  PREC_TERM,        // + -
-  PREC_FACTOR,      // * /
-  PREC_UNARY,       // ! -
-  PREC_CALL,        // . ()
+  PREC_TERM, // + -
+  PREC_FACTOR, // * /
+  PREC_UNARY, // ! -
+  PREC_CALL, // . ()
   PREC_PRIMARY
 } Precedence;
 
@@ -48,14 +48,6 @@ typedef struct {
   int scopeDepth;
 } Compiler;
 
-// typedef struct tempArray{
-//   int count;
-//   int capacity;
-//   Array **values;
-// } tempArray;
-
-// tempArray ta;
-
 Array* currArray;
 
 Parser parser;
@@ -71,24 +63,6 @@ bool parseSet = false;
 Chunk* compilingChunk;
 
 VM* currVm;
-
-// static void initTempArray(tempArray* array) {
-//     array->capacity = 0;
-//     array->count = 0;
-//     array->values = NULL;
-// }
-
-// static void* createInTemp(tempArray* array, Array * arr) {
-//     if (array->capacity < array->count + 1) {
-//         int oldCapacity = array->capacity;
-//         array->capacity = GROW_CAPACITY(oldCapacity);
-//         array->values = GROW_ARRAY(Array*, array->values,
-//                                     oldCapacity, array->capacity);
-//     }
-//     array->count++;
-//     array->values[array->count - 1] = arr;
-//     return &array->values[array->count-1];
-// }
 
 /*
 get the current chunk we are working in
@@ -314,17 +288,19 @@ static void varDeclaration() {
     
     emitBytes(OP_ARRAY, constant);
   }
-  
+  consume(TOKEN_SEMI, "expected ';'");
   defineVariable(global);
 }
 
 static void expressionStatement() {
   expression();
+  consume(TOKEN_SEMI, "expected ';'");
   emitByte(OP_POP);
 }
 
 static void printStatement() {
   expression();
+  consume(TOKEN_SEMI, "expected semicolon\n");
   emitByte(OP_PRINT);
 }
 
@@ -341,13 +317,27 @@ static void synchronize() {
       case TOKEN_CLASS:
       case TOKEN_FUN:
       case TOKEN_ARRAY:
-        return;
+      case TOKEN_SEMI:
+          return;
 
-      default:
-        ; // Do nothing.
+          default:; // Do nothing.
     }
 
     advance();
+  }
+}
+
+static void beginScope() {
+  current->scopeDepth++;
+}
+
+static void endScope() {
+  current->scopeDepth--;
+  while (current->localCount > 0 &&
+         current->locals[current->localCount - 1].depth >
+            current->scopeDepth) {
+    emitByte(OP_POP);
+    current->localCount--;
   }
 }
 
@@ -381,9 +371,9 @@ static int emitJump(uint8_t instruction) {
 }
 
 static void ifStatement() {
-
+  consume(TOKEN_LEFT_PAREN, "expect ( before condition in if\n");
   expression();
-  consume(TOKEN_SEMI, "Expect ';' after condition.");
+  consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition in if.");
 
   int thenJump = emitJump(OP_JUMP_IF_FALSE);
   emitByte(OP_POP);
@@ -392,7 +382,7 @@ static void ifStatement() {
   patchJump(thenJump);
   emitByte(OP_POP);
   if (match(TOKEN_BAR)) statement();
-  patchJump(elseJump);
+    patchJump(elseJump);
 }
 
 static void emitLoop(int loopStart) {
@@ -422,7 +412,8 @@ static void whileStatement() {
 }
 
 static void forStatement() {
-  //consume(TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
+  beginScope();
+  consume(TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
   if (match(TOKEN_SEMI)) {
     // No initializer.
   } else if (match(TOKEN_VAR)) {
@@ -430,7 +421,7 @@ static void forStatement() {
   } else {
     expressionStatement();
   }
-  consume(TOKEN_SEMI, "Expect ';'.");
+  // consume(TOKEN_SEMI, "Expect ';' after first for.");
 
   int loopStart = currentChunk()->count;
   int exitJump = -1;
@@ -443,40 +434,25 @@ static void forStatement() {
     emitByte(OP_POP); // Condition.
   }
 
-  if (!match(TOKEN_SEMI)) {
+  if (!match(TOKEN_RIGHT_PAREN)) {
     int bodyJump = emitJump(OP_JUMP);
     int incrementStart = currentChunk()->count;
     expression();
     emitByte(OP_POP);
-    consume(TOKEN_SEMI, "Expect ';' after for clauses.");
+    consume(TOKEN_RIGHT_PAREN, "Expect ')' after for clauses.");
 
     emitLoop(loopStart);
     loopStart = incrementStart;
     patchJump(bodyJump);
   }
-  while(!match(TOKEN_SEMI)){
-      statement();
+  statement();
 
-  }
   emitLoop(loopStart);
   if (exitJump != -1) {
     patchJump(exitJump);
     emitByte(OP_POP); // Condition.
   }
-}
-
-static void beginScope() {
-  current->scopeDepth++;
-}
-
-static void endScope() {
-  current->scopeDepth--;
-  while (current->localCount > 0 &&
-         current->locals[current->localCount - 1].depth >
-            current->scopeDepth) {
-    emitByte(OP_POP);
-    current->localCount--;
-  }
+  endScope();
 }
 
 static void block() {
@@ -505,6 +481,7 @@ static void statement() {
   } else {
     expressionStatement();
   }
+  //consume(TOKEN_SEMI, "expected semicolon\n");
 }
 
 static void grouping(bool canAssign){
@@ -512,47 +489,6 @@ static void grouping(bool canAssign){
   expression();
   consume(TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
 }
-
-// static void number(bool canAssign) {
-//   if(currArray->count == 0){
-//     currArray->type = VAL_DOUBLE;
-//   }
-
-//   if(currArray->type != VAL_DOUBLE){
-//     errorAt(&parser.previous,"array is incorrect type for number");
-//     return;
-//   }
-//   double val = strtod(parser.previous.start, NULL);
-//   createNewVal(currArray,&val);
-// }
-
-// static void character(bool canAssign){
-//   if(ta.count == 0){
-//     currArray = (Array*)initEmptyArray(VAL_CHAR);
-//   }
-//   if(currArray->type == VAL_UNKNOWN){
-//     currArray->type = VAL_CHAR;
-//   }
-//   if(currArray->type != VAL_CHAR){
-//     errorAtCurrent("array is incorrect type for character");
-//     return;
-//   }
-//   createNewVal(currArray , (char *)parser.previous.start);
-// }
-
-// static void addToArray(){
-//   if(tempArray == NULL){
-//     errorAtCurrent("array not initialized");
-//     return;
-//   }
-//   double value = strtod(parser.previous.start, NULL); 
-//   writeToArray(tempArray,value);
-  
-// }
-
-
-
-
 
 /*
 Check if the input char is a letter
@@ -562,15 +498,6 @@ Check if the input char is a letter
 static bool isAlpha(char c) {
     return (c >= 'a' && c <= 'z') ||
            (c >= 'A' && c <= 'Z');
-}
-
-/*
-Check if the input char is a digit
-@param c The char to check
-@return c is a digit
-*/
-static bool isDigit(char c) {
-  return c == '-' || (c >= '0' && c <= '9');
 }
 
 static bool foundDecimal(Token t){
@@ -649,7 +576,7 @@ static void parseArray(bool canAssign){
   }
   parseSet = true;
   // if(currDepth == 1)
-  //   emitArray();
+  //emitArray();
   //advance();
 }
 
@@ -675,6 +602,9 @@ static void unary(bool canAssign) {
     case TOKEN_MINUS: emitByte(OP_NEGATE); break;
     case TOKEN_POUND: emitByte(OP_GET_DIMS); break;
     case TOKEN_AMP: emitByte(OP_ALL); break;
+    case TOKEN_BAR:
+      emitByte(OP_ANY);
+      break;
     default: return; // Unreachable.
   }
 }
@@ -748,130 +678,77 @@ static void and_(bool canAssign) {
 static void chain(bool canAssign);
 
 static void createMultiDim(bool canAssign){
-  UNUSED(canAssign);
-  // printf("creating multo\n");
-  // if(currDepth == 0){
-  //   changeArrayDims(currArray,0,0);
-  // }
-  currDepth++;
-  // if(currDepth > currArray->dims.count+1){
-  //   changeArrayDims(currArray,1,currDepth-2);
-  // }
-
-    // ta.values[ta.count - 1]->hasSubArray = true;
-    // createInTemp(&ta,createNewVal(ta.values[ta.count - 1],  initEmptyArray(VAL_UNKNOWN)));
-    // currArray = ta.values[ta.count - 1];
-  // }else{
-  //   createInTemp(&ta, initEmptyArray(VAL_UNKNOWN));
-  //   currArray = ta.values[ta.count - 1];
-  // }
-    
-    parsePrecedence(PREC_ASSIGNMENT);
-
-    
+    UNUSED(canAssign);
+    currDepth++;
+    parsePrecedence(PREC_ASSIGNMENT);   
 }
-
-// static void setTypes(Array * a){
-//   for (int i = 0; i < a->count; i++){
-//     if(a->hasSubArray)
-//       setTypes(a->as.arrays[i]);
-//   }
-//   Array *temp = a;
-//   while(temp->hasSubArray){
-//     temp = *temp->as.arrays;
-//   }
-// }
 
 static void closeArray(bool canAssign){
   UNUSED(canAssign);
-  // if(ta.count >= 2)
-  //    currArray = ta.values[ta.count - 2];
-  // ta.count--;
-  // printf("closing array\n");
   if(currDepth > 1)
     changeArrayDims(currArray,1,currDepth-2);
   shallowestClosedDepth = currDepth < shallowestClosedDepth ? currDepth : shallowestClosedDepth;
-  
-  // printf("currarr dims count is %d\n",currArray->dims.count);
-  // for(int i = 0 ; i < currArray->dims.count; i++){
-  //   printf("dim %d is size %d\n",i,currArray->dims.values[i]);
-  // }
   currDepth--;
   if(currDepth == 0){
-    //setTypes(currArray);
     parseSet = false;
     shallowestClosedDepth = INT_MAX;
     emitArray();
   }
 }
 
-// static bool contains(Array* parent, Array * child){
-//   if(!parent->hasSubArray)
-//     return false;
-//   for (int i = 0; i < parent->count; i++){
-//     if(parent->as.arrays[i] == child)
-//       return true;
-//   }
-//   return false;
-// }
-
 static void chain(bool canAssign){
   UNUSED(canAssign);
   parsePrecedence(PREC_ASSIGNMENT);
 }
 
-// static void chainChar(bool canAssign){
-//   character(canAssign);
-//   chain(canAssign);
-// }
-
 ParseRule rules[] = {
-    [TOKEN_LEFT_PAREN] = {grouping, NULL, PREC_NONE},
-    [TOKEN_RIGHT_PAREN] = {NULL, NULL, PREC_NONE},
-    [TOKEN_LEFT_BRACE] = {NULL, NULL, PREC_NONE},
-    [TOKEN_RIGHT_BRACE] = {NULL, NULL, PREC_NONE},
-    [TOKEN_ARRAY] = {parseArray, lookup, PREC_ARRAY},
-    [TOKEN_LEFT_SQUARE] = {createMultiDim, NULL, PREC_NONE},
-    [TOKEN_RIGHT_SQUARE] = {NULL, closeArray, PREC_ASSIGNMENT},
-    [TOKEN_COMMA] = {NULL, chain, PREC_ASSIGNMENT},
-    [TOKEN_DOT] = {NULL, binary, PREC_FACTOR},
-    [TOKEN_MINUS] = {unary, binary, PREC_TERM},
-    [TOKEN_PLUS] = {unary, binary, PREC_TERM},
-    [TOKEN_SEMI] = {NULL, NULL, PREC_NONE},
-    [TOKEN_FORWARD_SLASH] = {NULL, binary, PREC_FACTOR},
-    [TOKEN_STAR] = {NULL, binary, PREC_FACTOR},
-    [TOKEN_AMP] = {unary, NULL, PREC_FACTOR},
-    //[TOKEN_BANG]          = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_BANG_EQUAL] = {NULL, NULL, PREC_NONE},
-    [TOKEN_EQUAL] = {NULL, NULL, PREC_NONE},
-    [TOKEN_EQUAL_EQUAL] = {NULL, binary, PREC_ASSIGNMENT},
-    [TOKEN_GREATER] = {NULL, binary, PREC_ASSIGNMENT},
-    [TOKEN_GREATER_EQUAL] = {NULL, NULL, PREC_NONE},
-    [TOKEN_LESS] = {NULL, NULL, PREC_NONE},
-    [TOKEN_LESS_EQUAL] = {NULL, NULL, PREC_NONE},
-    [TOKEN_IDENTIFIER] = {variable, NULL, PREC_NONE},
-    [TOKEN_POUND] = {unary, NULL, PREC_NONE},
-    //[TOKEN_STRING]        = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_NUMBER] = {NULL, NULL, PREC_NONE},
-    [TOKEN_CHAR] = {NULL, NULL, PREC_NONE},
-    [TOKEN_AND]  = {NULL,     and_,   PREC_NONE},
-    [TOKEN_CLASS] = {NULL, NULL, PREC_NONE},
-    //[TOKEN_ELSE]          = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_FALSE] = {NULL, NULL, PREC_NONE},
-    //[TOKEN_FOR]           = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_FUN] = {NULL, NULL, PREC_NONE},
-    //[TOKEN_IF]            = {NULL,     NULL,   PREC_NONE},
-    //   [TOKEN_NIL]           = {NULL,     NULL,   PREC_NONE},
-      [TOKEN_OR]            = {NULL,     or_,   PREC_NONE},
-    //   [TOKEN_PRINT]         = {NULL,     NULL,   PREC_NONE},
-    //   [TOKEN_RETURN]        = {NULL,     NULL,   PREC_NONE},
-    //   [TOKEN_SUPER]         = {NULL,     NULL,   PREC_NONE},
-    //   [TOKEN_THIS]          = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_TRUE] = {NULL, NULL, PREC_NONE},
-    //   [TOKEN_VAR]           = {NULL,     NULL,   PREC_NONE},
-    //   [TOKEN_WHILE]         = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_ERROR] = {NULL, NULL, PREC_NONE},
-    [TOKEN_EOF] = {NULL, NULL, PREC_NONE},
+    [TOKEN_LEFT_PAREN]    = {grouping,       NULL,       PREC_NONE      },
+    [TOKEN_RIGHT_PAREN]   = {NULL,           NULL,       PREC_NONE      },
+    [TOKEN_LEFT_BRACE]    = {NULL,           NULL,       PREC_NONE      },
+    [TOKEN_RIGHT_BRACE]   = {NULL,           NULL,       PREC_NONE      },
+    [TOKEN_ARRAY]         = {parseArray,     lookup,     PREC_ARRAY     },
+    [TOKEN_LEFT_SQUARE]   = {createMultiDim, NULL,       PREC_NONE      },
+    [TOKEN_RIGHT_SQUARE]  = {NULL,           closeArray, PREC_ASSIGNMENT},
+    [TOKEN_COMMA]         = {NULL,           chain,      PREC_ASSIGNMENT},
+    [TOKEN_DOT]           = {NULL,           binary,     PREC_FACTOR    },
+    [TOKEN_MINUS]         = {unary,          binary,     PREC_TERM      },
+    [TOKEN_PLUS]          = {unary,          binary,     PREC_TERM      },
+    [TOKEN_SEMI]          = {NULL,           NULL,       PREC_NONE      },
+    [TOKEN_FORWARD_SLASH] = {NULL,           binary,     PREC_FACTOR    },
+    [TOKEN_STAR]          = {NULL,           binary,     PREC_FACTOR    },
+    [TOKEN_AMP]           = {unary,          NULL,       PREC_FACTOR    },
+    [TOKEN_BAR]           = {unary,          NULL,       PREC_FACTOR    },
+    [TOKEN_BANG]          = {NULL,           NULL,       PREC_NONE      },
+    [TOKEN_BANG_EQUAL]    = {NULL,           NULL,       PREC_NONE      },
+    [TOKEN_EQUAL]         = {NULL,           NULL,       PREC_NONE      },
+    [TOKEN_EQUAL_EQUAL]   = {NULL,           binary,     PREC_ASSIGNMENT},
+    [TOKEN_GREATER]       = {NULL,           binary,     PREC_ASSIGNMENT},
+    [TOKEN_GREATER_EQUAL] = {NULL,           NULL,       PREC_NONE      },
+    [TOKEN_LESS]          = {NULL,           NULL,       PREC_NONE      },
+    [TOKEN_LESS_EQUAL]    = {NULL,           NULL,       PREC_NONE      },
+    [TOKEN_IDENTIFIER]    = {variable,       NULL,       PREC_NONE      },
+    [TOKEN_POUND]         = {unary,          NULL,       PREC_NONE      },
+    //[TOKEN_STRING]        = {NULL,         NULL,       PREC_NONE      },
+    [TOKEN_NUMBER]        = {NULL,           NULL,       PREC_NONE      },
+    [TOKEN_CHAR]          = {NULL,           NULL,       PREC_NONE      },
+    [TOKEN_AND]           = {NULL,           and_,       PREC_NONE      },
+    [TOKEN_CLASS]         = {NULL,           NULL,       PREC_NONE      },
+    //[TOKEN_ELSE]          = {NULL,         NULL,       PREC_NONE      },
+    [TOKEN_FALSE]         = {NULL,           NULL,       PREC_NONE      },
+    //[TOKEN_FOR]           = {NULL,         NULL,       PREC_NONE      },
+    [TOKEN_FUN]           = {NULL,           NULL,       PREC_NONE      },
+    //[TOKEN_IF]            = {NULL,         NULL,       PREC_NONE      },
+    //[TOKEN_NIL]           = {NULL,         NULL,       PREC_NONE      },
+      [TOKEN_OR]          = {NULL,           or_,        PREC_NONE      },
+    //[TOKEN_PRINT]         = {NULL,         NULL,       PREC_NONE      },
+    //[TOKEN_RETURN]        = {NULL,         NULL,       PREC_NONE      },
+    //[TOKEN_SUPER]         = {NULL,         NULL,       PREC_NONE      },
+    //[TOKEN_THIS]          = {NULL,         NULL,       PREC_NONE      },
+    [TOKEN_TRUE]          = {NULL,           NULL,       PREC_NONE      },
+    //[TOKEN_VAR]           = {NULL,         NULL,       PREC_NONE      },
+    //[TOKEN_WHILE]         = {NULL,         NULL,       PREC_NONE      },
+    [TOKEN_ERROR]         = {NULL,           NULL,       PREC_NONE      },
+    [TOKEN_EOF]           = {NULL,           NULL,       PREC_NONE      },
 };
 
 static void parsePrecedence(Precedence precedence) {

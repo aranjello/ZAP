@@ -145,6 +145,8 @@ int disassembleInstruction(VM* vm,Chunk* chunk, int offset) {
       return simpleInstruction("OP_GREATER", offset);
     case OP_ALL:
       return simpleInstruction("OP_ALL", offset);
+    case OP_ANY:
+      return simpleInstruction("OP_ANY", offset);
     case OP_RETURN:
       return simpleInstruction("OP_RETURN", offset);
     default:

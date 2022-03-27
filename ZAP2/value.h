@@ -63,6 +63,7 @@ Array * initEmptyArray(ValueType t);
 Array * createArray(ValueType t, int val,...);
 void * createNewVal(Array* array,void * val,bool changeDims);
 void changeArrayDims(Array* arr,int change, int dimDepth);
+void copyArrayDims(Array *dest, Array *source);
 void trashArray(Array *array);
 void initValueArray(ArrayArray* array);
 void * createValueArray(ArrayArray* array , Array * arr);

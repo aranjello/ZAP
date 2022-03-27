@@ -105,6 +105,12 @@ void changeArrayDims(Array* arr,int change, int dimDepth){
     arr->dims.values[dimDepth]+= change;
 }
 
+void copyArrayDims(Array *dest, Array *source){
+    for (int i = 0; i < source->dims.count; i++){
+        changeArrayDims(dest, source->dims.values[i], i);
+    }
+}
+
 /*
 Writes a new value to an already existing array
 @param array The array to be added to
@@ -138,14 +144,10 @@ void * createNewVal(Array* array, void * val, bool changeDims){
             array->as.keys = GROW_ARRAY(Key, array->as.keys,
                                     oldCapacity, array->capacity);
             break;
-        
-        
-        // case VAL_UNKNOWN:
-        //     array->as.arrays = GROW_ARRAY(Array*, array->as.arrays, oldCapacity, array->capacity);
-        //     break;
-        // default:
-        //     printf("array type not set\n");
-        //     break;
+        //should be unreachable
+        case VAL_NULL:
+        case VAL_UNKNOWN:
+            exit(1);
         }
     }
     
@@ -160,25 +162,25 @@ void * createNewVal(Array* array, void * val, bool changeDims){
             array->as.doubles[array->count - 1] = *(double *)val;
             return &array->as.doubles[array->count - 1];
             break;
+        case VAL_CHAR :
+            array->as.chars[array->count - 1] = *(char *)val;
+            return &array->as.chars[array->count - 1];
+            break;
+        case VAL_BOOL :
+            array->as.bools[array->count - 1] = *(bool *)val;
+            return &array->as.bools[array->count - 1];
+            break;
         case VAL_KEY :
             array->as.keys[array->count - 1] = *(Key *)val;
             array->as.keys[array->count - 1].loc = array->count - 1;
             return &array->as.keys[array->count - 1];
             break;
-        
-        case VAL_CHAR :
-            array->as.chars[array->count - 1] = *(char *)val;
-            return &array->as.chars[array->count - 1];
-            break;
-        // case VAL_UNKNOWN :
-        //     array->as.arrays[array->count - 1] = (Array*)val;
-        //     return array->as.arrays[array->count - 1];
-        //     break;
-        // default:
-        //     printf("array type not set for return\n");
-        //     return NULL;
-        //     break;
+        //should be unreachable
+        case VAL_NULL:
+        case VAL_UNKNOWN:
+            exit(1);
         }
+        return NULL;
 }
 
 /*
@@ -255,9 +257,10 @@ static int printSub(Array value, double count, int offset){
                 case VAL_BOOL:
                     printf("%d", value.as.bools[i+offset]);
                     break;
+                //should be unreachable
+                case VAL_NULL:
                 case VAL_UNKNOWN:
-                    printf("not set");
-                    break;
+                    exit(1);
                 
                 
                 case VAL_KEY:

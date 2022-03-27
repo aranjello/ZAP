@@ -38,6 +38,7 @@ typedef enum
     //dyadic comparison ops
     OP_COMPARE,
     OP_ALL,
+    OP_ANY,
     OP_EQUAL,
     OP_GREATER,
     OP_LESS,
