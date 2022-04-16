@@ -14,6 +14,8 @@ minima nesciunt dolorem! Officiis iure rerum voluptates a cumque velit];
 //The letters of the alphabet to search with
 var alphabet=[abcdefghijklmnopqrstuvwxyz];
 
+@alphabet
+
 //loop through the the alpahbet letters and get the count for each letter
 ??(var index = [0]; index < #alphabet; index = index + [1]){
     var letterCount = +(string==(alphabet(index)));
