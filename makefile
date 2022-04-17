@@ -51,8 +51,8 @@ build/debug/$(DEBUG_EXE): $(DEBUG_OBJS)
 build/release/$(EXE): $(OBJS) 
 	$(CC) $(CFLAGS) $(OBJS) -o build/release/$(EXE) 
 
-test: $(TEST_EXE) $(EXE)
-	./$(TEST_EXE) $(EXE)
+test: $(TEST_EXE) build/debug/$(DEBUG_EXE)
+	./$(TEST_EXE) build\debug\$(DEBUG_EXE)
 
 $(TEST_ODIR)/%.o: $(TEST_SDIR)/%.cpp
 	$(CC) -c $(INC) -o $@ $< $(CFLAGS) 
