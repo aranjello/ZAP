@@ -5,6 +5,6 @@ int main(int argc, char** argv){
     // for (int i = 0; i < argc; i++){
     //     printf("%s\n", argv[i]);
     // }
-    int retCode = system("ZAP.exe test/tests/test.txt > ersult.txt");
+    int retCode = system("ZAP.exe test/tests/test.ZUT > result.txt");
     return 0;
 }
