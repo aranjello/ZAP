@@ -1,0 +1,5 @@
+[]
+<!>
+TOKEN_OPEN_SQUARE line index:0 content: [
+TOKEN_CLOSED_SQUARE line index:1 content: ]
+[]

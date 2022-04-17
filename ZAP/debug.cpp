@@ -5,7 +5,7 @@
 void printTokens(std::vector<token> tokenList){
     #define TOKEN_PRINT(NAME,index)   \
         case NAME:              \
-            std::cout << #NAME << " line index:" << tokenList.at(index).linePos << " content: " << tokenList.at(index).content; \
+            std::cout << #NAME << " line:" << tokenList.at(i).line << " line index:" << tokenList.at(index).linePos << " content: " << tokenList.at(index).content; \
             break
     for (size_t i = 0; i < tokenList.size(); i++){
         switch (tokenList.at(i).type)

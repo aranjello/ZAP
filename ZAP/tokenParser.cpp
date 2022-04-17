@@ -42,7 +42,7 @@ static bool matchAndAdd(size_t* initialIndex, string match, tokenType t){
 
 static void matchAndAddNum(size_t* initialIndex){
     size_t endIndex = *initialIndex;
-    while(endIndex < currString.length() && isNumber(currString.at(endIndex))){
+    while(endIndex < currString.length() && (currString.at(endIndex) == '-' || currString.at(endIndex) == '.' || isNumber(currString.at(endIndex)))){
         endIndex++;
     }
     string identifier = currString.substr(*initialIndex, (endIndex - *initialIndex));
@@ -64,11 +64,18 @@ static void matchAndAddIdentifier(size_t* initialIndex){
     noneFound = false;
 }
 
+static void resetTokens(){
+    arrDepth = 0;
+    currLine = 0;
+    currLinePos = 0;
+    tokenList.clear();
+}
+
 //longest match must always come first
 //e.g ![ must match before ! or [
 vector<token> getTokens(string input){
     currString = input;
-    
+    resetTokens();
     for (size_t i = 0; i < input.length();){
         clearWhiteSpace(&i);
         noneFound = true;
@@ -91,7 +98,7 @@ vector<token> getTokens(string input){
             }
             else
             {
-                tokenList.push_back(token(TOKEN_UNKNOWN, currChar + "", currLine, currLinePos));
+                tokenList.push_back(token(TOKEN_UNKNOWN, string(1,currChar), currLine, currLinePos));
                 currLinePos++;
                 i++;
             }
